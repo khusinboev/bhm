@@ -1,3 +1,4 @@
+import re
 import fitz
 from aiogram import Router, F
 from aiogram.enums import ChatType
@@ -5,6 +6,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 from config import bot, ADMIN_ID, sql, db
+from src.handlers.users.havola import havola
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 
@@ -61,7 +63,7 @@ async def show_orders(message: Message):
         inline_keyboard=[
             [InlineKeyboardButton(
                 text="📲 Natijani ko'rish",
-                web_app=WebAppInfo(url="https://mandat.uzbmb.uz/")
+                web_app=WebAppInfo(url=havola)
             )]
         ]
     )
@@ -71,3 +73,16 @@ async def show_orders(message: Message):
 @user_router.message(F.text == "📝 Natijaga buyurtma berish", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message):
     await message.answer("Natijangizni buyurtma qilish uchun '<b>Abituriyent ruxsatnomasi</b>'ni <b>PDF</b> faylini yuboring", reply_markup=await UserPanels.main(),  parse_mode="html")
+
+
+@user_router.message(F.text.startswith("kirit"), F.chat.type == ChatType.PRIVATE, F.from_user.id.in_(ADMIN_ID))
+async def save_link_to_txt(message: Message):
+    # Regex orqali havolani ajratamiz
+    match = re.search(r"https?://\S+", message.text)
+    if match:
+        url = match.group()
+        with open("havola.py", "w", encoding="utf-8") as f:
+            f.write(f"""havola = "{url}" """)
+        await message.answer(f"✅ Havola saqlandi:\n{url}")
+    else:
+        await message.answer("❗ Havola topilmadi. Format: \n\n<code>kirit https://...</code>")
