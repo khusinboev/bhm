@@ -59,7 +59,9 @@ async def show_orders(message: Message):
         await message.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
                              reply_markup=await CheckData.channels_btn(channels))
         return
-    with open("havola.txt", "r", encoding="utf-8") as f:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_dir, "havola.txt")
+    with open(file_path, "r", encoding="utf-8") as f:
         havola =  f.read().strip()
     btn = InlineKeyboardMarkup(
         inline_keyboard=[
