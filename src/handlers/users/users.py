@@ -13,7 +13,7 @@ user_router = Router()
 
 @user_router.message(CommandStart())
 async def start_cmd1(message: Message):
-    await message.answer("<b>Botimizdan foydalanishni davom etishingiz mumkin, quyidagi tugmalardan birini tanlab davom etishingiz mumkin</b>",
+    await message.answer("<b>Botimizdan foydalanish uchun quyidagi tugmalardan birini tanlang</b>",
                          reply_markup=await UserPanels.main2(),  parse_mode="html")
 
 @user_router.callback_query(F.data == "check", F.message.chat.type == ChatType.PRIVATE)
@@ -24,7 +24,7 @@ async def check(call: CallbackQuery):
         if check_status:
             await call.message.delete()
             await bot.send_message(chat_id=user_id,
-                                   text="<b>Botimizdan foydalanishni davom etishingiz mumkin, quyidagi tugmalardan birini tanlab davom etishingiz mumkin</b>",
+                                   text="<b>Botimizdan foydalanish uchun quyidagi tugmalardan birini tanlang</b>",
                                    reply_markup=await UserPanels.main2(),
                                    parse_mode="html")
             try:

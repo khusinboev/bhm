@@ -13,6 +13,6 @@ registr_router = Router()
 
 @registr_router.message(CommandStart())
 async def start_cmd1(message: Message):
-    await message.answer("<b>Botimizdan foydalanishni davom etishingiz mumkin, quyidagi tugmalardan birini tanlab davom etishingiz mumkin</b>",
+    await message.answer("<b>Botimizdan foydalanish uchun quyidagi tugmalardan birini tanlang</b>",
                          reply_markup=await UserPanels.main2(),  parse_mode="html")
 
