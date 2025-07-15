@@ -1,3 +1,4 @@
+import os
 import re
 import fitz
 from aiogram import Router, F
@@ -81,8 +82,11 @@ async def save_link_to_txt(message: Message):
     match = re.search(r"https?://\S+", message.text)
     if match:
         url = match.group()
-        with open("havola.py", "w", encoding="utf-8") as f:
-            f.write(f"""havola = "{url}" """)
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, "havola.py")
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(f'havola = "{url}"\n')
         await message.answer(f"✅ Havola saqlandi:\n{url}")
     else:
         await message.answer("❗ Havola topilmadi. Format: \n\n<code>kirit https://...</code>")
