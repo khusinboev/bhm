@@ -143,7 +143,7 @@ async def handle_pdf(message: Message):
         text = (f"✅ <b>Tabriklaymiz!:</b> {abt_id} ID raqamli abituriyent natijasiga buyurtma qabul qilindi \n\n       "
                 f"<b>📑 Buyurtma tartib raqami:</b> {order_number}\n\n       F.ISH: {abt_name}\n\n       "
                 f"<i>Eslatma: Natijalar elon qilinishi bilan ushbu bot avtomatik ravishda natijangizni sizga yuboradi!</i>\n\n       "
-                f"<b>✔️ Buyurtma @mandat_uzbmb_bot tomonidan amalga oshirilmoqda.</b>")
+                f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>")
 
         await message.answer(text, parse_mode="html")
 
