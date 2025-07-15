@@ -15,5 +15,5 @@ async def chosen_lang(message: Message, state: FSMContext):
         await state.clear()
     except: pass
     await message.answer(
-        "Natijangizni buyurtma qilish uchun <b>'Abituriyent ruxsatnomasi'</b>ni <b>PDF</b> faylini yuboring",
-        reply_markup=await UserPanels.main(), parse_mode="html")
+        "<b>Botimizdan foydalanishni davom etishingiz mumkin, quyidagi tugmalardan birini tanlab davom etishingiz mumkin</b>",
+        reply_markup=await UserPanels.main2(), parse_mode="html")
