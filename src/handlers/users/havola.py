@@ -1,1 +1,0 @@
-havola = "https://mandat.uzbmb.uz/"

@@ -7,7 +7,6 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 from config import bot, ADMIN_ID, sql, db
-from src.handlers.users.havola import havola
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 
@@ -60,6 +59,8 @@ async def show_orders(message: Message):
         await message.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
                              reply_markup=await CheckData.channels_btn(channels))
         return
+    with open("havola.txt", "r", encoding="utf-8") as f:
+        havola =  f.read().strip()
     btn = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(
@@ -83,10 +84,10 @@ async def save_link_to_txt(message: Message):
     if match:
         url = match.group()
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(current_dir, "havola.py")
+        file_path = os.path.join(current_dir, "havola.txt")
 
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(f'havola = "{url}"\n')
+            f.write(f'{url}')
         await message.answer(f"✅ Havola saqlandi:\n{url}")
     else:
         await message.answer("❗ Havola topilmadi. Format: \n\n<code>kirit https://...</code>")
