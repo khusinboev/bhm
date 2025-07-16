@@ -25,7 +25,8 @@ os.makedirs("screens", exist_ok=True)
 
 data_router = Router()
 
-
+class MainState2(StatesGroup):
+    natija = State()
 
 
 @data_router.message(F.text == "📊 Natija", F.chat.type == ChatType.PRIVATE)
