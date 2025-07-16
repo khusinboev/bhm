@@ -34,40 +34,52 @@ def get_abiturient_info_by_id(user_id: str):
 
     driver = webdriver.Chrome(options=options)
     try:
+        print("🌐 Saytga kirilmoqda...")
         driver.get("https://mandat.uzbmb.uz/")
         wait = WebDriverWait(driver, 30)
         wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
 
-        # ID ni kiritish
+        # Screenshot 1: Sahifa to'liq yuklangan
+        screenshot1 = f"screens/screen_ready_{int(time.time())}.png"
+        driver.save_screenshot(screenshot1)
+
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         input_field.clear()
         input_field.send_keys(str(user_id))
-        time.sleep(1)
+        time.sleep(1.5)
 
-        # Qidiruv bosish
+        # Screenshot 2: ID kiritilgan
+        screenshot2 = f"screens/screen_id_entered_{int(time.time())}.png"
+        driver.save_screenshot(screenshot2)
+
         driver.execute_script("document.getElementById('SearchBtn1').click();")
-        time.sleep(2)
+        print("🔍 Qidiruv bosildi")
 
-        # Batafsil tugmasi
+        # Screenshot 3: Qidiruvdan keyin
+        time.sleep(2)
+        screenshot3 = f"screens/screen_after_search_{int(time.time())}.png"
+        driver.save_screenshot(screenshot3)
+
+        # Batafsil tugmasini bosish
         detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_btn.click()
+        print("📄 Batafsil sahifaga o‘tildi")
 
-        # ❗ Sahifa to‘liq yuklanguncha kutamiz
-        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+        # Screenshot 4: Batafsil ochilgan
+        time.sleep(2)
+        screenshot4 = f"screens/screen_detail_opened_{int(time.time())}.png"
+        driver.save_screenshot(screenshot4)
 
-        # 🔁 Yangi sahifa yuklangach <h2> elementini kutamiz
-        fio = wait.until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, "h2.text-center.text-uppercase"))
-        ).text.strip()
-
-
-        # Fanlar (Top 6ta)
-        fanlar_divs = wait.until(EC.presence_of_all_elements_located(
-            (By.CSS_SELECTOR, "div.card-header.card-div.text-center")
-        ))
+        print(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.card-header card-div text-center"))).text.strip())
+        # FIO
+        fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
+        print(fio)
+        # Ballar va javoblar (6ta)
+        card_divs = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
         fanlar = []
-        for div in fanlar_divs[:6]:
-            items = div.find_elements(By.TAG_NAME, "b")
+
+        for i in range(6):
+            items = card_divs[i].find_elements(By.TAG_NAME, "b")
             if len(items) >= 2:
                 correct = items[0].text.strip()
                 score = items[1].text.strip()
@@ -75,25 +87,13 @@ def get_abiturient_info_by_id(user_id: str):
             else:
                 fanlar.append(("?", "?"))
 
-        # Ballar (Imtiyoz, Ijodiy, CEFR, Milliy, Umumiy)
-        all_score_divs = wait.until(EC.presence_of_all_elements_located(
-            (By.CSS_SELECTOR, "div.card-header.card-div.text-center")
-        ))
+        # Qolgan ballar
+        imtiyoz = card_divs[6].find_element(By.TAG_NAME, "b").text.strip()
+        ijodiy = card_divs[7].find_element(By.TAG_NAME, "b").text.strip()
+        cefr = card_divs[8].find_element(By.TAG_NAME, "b").text.strip()
+        milliy = card_divs[9].find_element(By.TAG_NAME, "b").text.strip()
+        umumiy = card_divs[10].find_element(By.TAG_NAME, "b").text.strip()
 
-        def extract_score_by_label(label: str):
-            for div in all_score_divs:
-                if label in div.text:
-                    b = div.find_element(By.TAG_NAME, "b")
-                    return b.text.strip()
-            return "0"
-
-        imtiyoz = extract_score_by_label("Imtiyoz ball")
-        ijodiy = extract_score_by_label("Ijodiy ball")
-        cefr = extract_score_by_label("CEFR ball")
-        milliy = extract_score_by_label("Milliy sertifikat")
-        umumiy = extract_score_by_label("Umumiy ball")
-
-        # Vaqt
         vaqt = driver.find_element(By.TAG_NAME, "small").text.strip()
 
         matn = f"""<b>BAKALAVR 2025</b>
