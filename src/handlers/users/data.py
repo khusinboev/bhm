@@ -77,7 +77,7 @@ def get_abiturient_info_by_id(user_id: str):
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         input_field.clear()
         input_field.send_keys(str(user_id))
-        time.sleep(1.5)
+        time.sleep(1)
 
         driver.execute_script("document.getElementById('SearchBtn1').click();")
         print("🔍 Qidiruv bosildi")
