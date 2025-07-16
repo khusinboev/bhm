@@ -26,42 +26,55 @@ def get_abiturient_info_by_id(user_id: str):
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
-    print("1-bosqich")
-    driver = webdriver.Chrome(options=options)
-    print("2-bosqich")
-    try:
-        driver.get("https://mandat.uzbmb.uz/")
-        print("3-bosqich")
-        wait = WebDriverWait(driver, 30)
-        print("4-bosqich")
-        # Sahifa to‘liq yuklanganini kutish
-        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
-        print("5-bosqich")
-        # === Screenshot olish ===
-        timestamp = int(time.time())
-        screenshot_path = f"screenshot_after_ready_{timestamp}.png"
-        driver.save_screenshot(screenshot_path)
-        print(f"✅ Screenshot saqlandi: {screenshot_path}")
+    options.add_argument(
+        "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
+    )
 
-        # Kirish qutisi va tugmani kutish
+    driver = webdriver.Chrome(options=options)
+    try:
+        print("1️⃣ Saytga kirilmoqda...")
+        driver.get("https://mandat.uzbmb.uz/")
+        wait = WebDriverWait(driver, 30)
+
+        # Sahifa yuklanishini kutish
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+        print("2️⃣ Sahifa to‘liq yuklandi")
+
+        # Screenshot: sahifa yuklangandan keyin
+        screenshot1 = f"screenshot_ready_{int(time.time())}.png"
+        driver.save_screenshot(screenshot1)
+        print(f"📸 Screenshot #1 saqlandi: {screenshot1}")
+
+        # Input va tugmalarni topamiz
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
-        search_btn_elem = wait.until(EC.presence_of_element_located((By.ID, "SearchBtn1")))
-        wait.until(EC.element_to_be_clickable((By.ID, "SearchBtn1")))
-        print("6-bosqich")
         input_field.clear()
         input_field.send_keys(str(user_id))
         time.sleep(1.5)
-        search_btn_elem.click()
-        print("7-bosqich")
-        # "Batafsil" tugmasi
+
+        # Screenshot: ID kiritilgandan keyin
+        screenshot2 = f"screenshot_id_entered_{int(time.time())}.png"
+        driver.save_screenshot(screenshot2)
+        print(f"📸 Screenshot #2 saqlandi: {screenshot2}")
+
+        # JS orqali bosamiz
+        driver.execute_script("document.getElementById('SearchBtn1').click();")
+        print("✅ Qidirish tugmasi JS orqali bosildi")
+
+        # Screenshot: tugmani bosgandan keyin
+        time.sleep(2)
+        screenshot3 = f"screenshot_after_click_{int(time.time())}.png"
+        driver.save_screenshot(screenshot3)
+        print(f"📸 Screenshot #3 saqlandi: {screenshot3}")
+
+        # Batafsil tugmasini kutamiz
         detail_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_button.click()
-        print("8-bosqich")
+        print("📋 Batafsil tugmasi bosildi")
+
         # FIO
         fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
-        print("9-bosqich")
-        # Ballar va fanlar
+
+        # Ballar
         card_headers = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
         fanlar = []
 
