@@ -97,7 +97,7 @@ def get_abiturient_info_by_id(user_id: str):
 
             bolds = soup.find_all("b")
             print(bolds)
-            if num >= 3:
+            if num > 3:
                 correct = bolds[0].text.strip()
                 score = bolds[1].text.strip()
                 fanlar.append((correct, score))
