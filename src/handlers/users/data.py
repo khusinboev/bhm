@@ -38,6 +38,16 @@ def get_abiturient_info_by_id(user_id: str):
         # Sahifa to‘liq yuklanganini kutish
         wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
         print("5-bosqich")
+        input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
+        search_btn_elem = wait.until(EC.presence_of_element_located((By.ID, "SearchBtn1")))
+
+        if not search_btn_elem.is_displayed():
+            driver.save_screenshot("search_btn_not_visible.png")
+            return "❌ Qidiruv tugmasi sahifada ko‘rinmadi."
+
+        if not search_btn_elem.is_enabled():
+            return "❌ Tugma faol emas. Sahifa to‘liq yuklanmadi."
+        print("bedan o'ttiqaxir")
         # Kirish qutisi va tugmani kutish
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         search_btn_elem = wait.until(EC.presence_of_element_located((By.ID, "SearchBtn1")))
