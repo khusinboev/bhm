@@ -18,7 +18,6 @@ from src.middlewares.middleware import RegisterUserMiddleware
 
 
 async def main():
-    from src.handlers.users.data import on_startup
     
     logging.basicConfig(level=logging.INFO)
 
@@ -39,7 +38,7 @@ async def main():
     dp.include_router(channel_router)
     dp.include_router(other_router)
 
-    await dp.start_polling(bot, on_startup=on_startup)
+    await dp.start_polling(bot)
 
 
 if __name__ == "__main__":
