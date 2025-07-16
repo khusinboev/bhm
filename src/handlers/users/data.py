@@ -1,6 +1,4 @@
-
 import logging
-import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,8 +9,8 @@ from bs4 import BeautifulSoup
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
@@ -22,6 +20,9 @@ from config import bot
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 
+executor = ThreadPoolExecutor()
+
+# Ishga tushirish uchun kerakli papkani yaratish
 os.makedirs("screens", exist_ok=True)
 
 data_router = Router()
@@ -29,33 +30,8 @@ data_router = Router()
 class MainState2(StatesGroup):
     natija = State()
 
-
-@data_router.message(MainState2.natija, F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE)
-async def show_orders(message: Message, state: FSMContext):
-    await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
-    try:
-        await state.clear()
-    except: pass
-
-
-
-@data_router.message(F.text == "📊 Natija", F.chat.type == ChatType.PRIVATE)
-async def show_orders(message: Message, state: FSMContext):
-
-    from_chat_id = "@Second_Polat"
-    message_id = 733
-    await bot.copy_message(
-            chat_id=message.chat.id,
-            from_chat_id=from_chat_id,
-            message_id=message_id,
-            reply_markup=await UserPanels.to_back(),
-        )
-    await state.set_state(MainState2.natija)
-
-
-executor = ThreadPoolExecutor()
-
-def get_abiturient_info_by_id(user_id: str):
+# Funksiyalarni modullashtirish va optimallashtirish
+def setup_chrome_driver():
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -67,68 +43,58 @@ def get_abiturient_info_by_id(user_id: str):
     options.add_argument(
         "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
     )
+    return webdriver.Chrome(options=options)
 
-    driver = webdriver.Chrome(options=options)
+def parse_fanlar(soup):
+    fanlar = []
+    headers = soup.select("div.card-header.card-div.text-center")
+    for header in headers:
+        text = header.get_text(strip=True)
+        if "To’g’ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
+            bolds = header.find_all("b")
+            if len(bolds) == 2:
+                fanlar.append((bolds[0].text.strip(), bolds[1].text.strip()))
+            if len(fanlar) >= 3:
+                break
+    return fanlar
+
+def parse_umumiy_ball(soup):
+    umumiy_div = soup.find("div", class_="card-header card-div text-center", string=lambda t: t and "Umumiy ball" in t)
+    if not umumiy_div:
+        umumiy_div = soup.find("div", class_="bg-success")
+    return umumiy_div.find("b").text.strip() if umumiy_div and umumiy_div.find("b") else "?"
+
+def get_abiturient_info_by_id(user_id: str):
+    driver = setup_chrome_driver()
     try:
-        print("🌐 Saytga kirilmoqda...")
         driver.get("https://mandat.uzbmb.uz/")
         wait = WebDriverWait(driver, 30)
         wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
 
+        # ID kiritish va qidirish
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         input_field.clear()
         input_field.send_keys(str(user_id))
-        time.sleep(1.5)
 
+        # Qidiruvni boshlash
         driver.execute_script("document.getElementById('SearchBtn1').click();")
-        print("🔍 Qidiruv bosildi")
 
-        time.sleep(1)
+        # Batafsil sahifaga o'tish
         detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_btn.click()
-        print("📄 Batafsil sahifaga o‘tildi")
-
-        # Sahifa yuklanishini kutish
-        time.sleep(1)
 
         # FIO olish
         fio_element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'F.I.SH')]/b")))
         fio = fio_element.text.strip()
 
-        # Sahifa HTML
-        html = driver.page_source
-        soup = BeautifulSoup(html, "html.parser")
-
-        # Faqat kerakli 3 ta ball bloklarini olish
-        card_headers = soup.select("div.card-header.card-div.text-center")
-        fanlar = []
-        for header in card_headers:
-            text = header.get_text(strip=True)
-            if "To’g’ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
-                bolds = header.find_all("b")
-                if len(bolds) == 2:
-                    correct = bolds[0].text.strip()
-                    score = bolds[1].text.strip()
-                    fanlar.append((correct, score))
-                if len(fanlar) >= 3:
-                    break  # faqat 3 ta blok yetarli
-
-
-# Umumiy ball olish
-        umumiy_ball = "?"
-        umumiy_div = soup.find("div", class_="card-header card-div text-center", string=lambda t: t and "Umumiy ball" in t)
-        if not umumiy_div:
-            # Yoki boshqa usul bilan izlash:
-            umumiy_div = soup.find("div", class_="bg-success")
-        if umumiy_div:
-            umumiy_b = umumiy_div.find("b")
-            if umumiy_b:
-                umumiy_ball = umumiy_b.text.strip()
-
-        # Vaqt
+        # Sahifa HTML'ni o‘qib olish
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        fanlar = parse_fanlar(soup)
+        umumiy_ball = parse_umumiy_ball(soup)
         vaqt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        matn = f"""<b>BAKALAVR 2025</b>
+        # Natijani yuborish
+        return f"""<b>BAKALAVR 2025</b>
 _______
 <b>FIO</b>:  {fio}
 🆔:  <b>{user_id}</b>
@@ -148,10 +114,8 @@ _______
 ✅ <b>Umumiy ball:</b> {umumiy_ball}
 ⏰ {vaqt}
 
-
 <b>✅ Ma'lumotlar @mandat_uzbmbbot tomonidan olindi</b>
 """
-        return matn
 
     except Exception as e:
         logging.exception("❌ Xatolik:")
@@ -160,15 +124,16 @@ _______
     finally:
         driver.quit()
 
+
 # === HANDLER: ID qabul qilib, fon threadda ishlatish ===
 @data_router.message(MainState2.natija, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
     user_id = msg.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
     if not check_status:
-        await msg.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
-                             reply_markup=await CheckData.channels_btn(channels))
+        await msg.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:", reply_markup=await CheckData.channels_btn(channels))
         return
+
     abt_id = msg.text.strip()
     await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
 
@@ -186,7 +151,7 @@ async def handle_id_query(msg: Message):
 
     asyncio.create_task(process_and_reply())
 
-
+# === Handler 2: Qolgan barcha xabarlar uchun ===
 @data_router.message(MainState2.natija, F.chat.type == ChatType.PRIVATE)
 async def handle_id_query2(msg: Message):
     from_chat_id = "@Second_Polat"
