@@ -28,7 +28,37 @@ data_router = Router()
 
 
 
+@data_router.message(F.text == "📊 Natija", F.chat.type == ChatType.PRIVATE)
+async def show_orders(message: Message, state: FSMContext):
+    # user_id = message.from_user.id
+    # check_status, channels = await CheckData.check_member(bot, user_id)
+    # if not check_status:
+    #     await message.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
+    #                          reply_markup=await CheckData.channels_btn(channels))
+    #     return
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
+    # file_path = os.path.join(current_dir, "havola.txt")
+    # with open(file_path, "r", encoding="utf-8") as f:
+    #     havola =  f.read().strip()
+    # btn = InlineKeyboardMarkup(
+    #     inline_keyboard=[
+    #         [InlineKeyboardButton(
+    #             text="📲 Natijani ko'rish",
+    #             web_app=WebAppInfo(url=havola)
+    #         )]
+    #     ]
+    # )
+    #await message.answer("<b>👇🏻 Quyidagi tugmani bosib natijangizni ko'rishingiz mumkin</b>", reply_markup=btn,  parse_mode="html")
 
+    from_chat_id = "@Second_Polat"
+    message_id = 733
+    await bot.copy_message(
+            chat_id=message.chat.id,
+            from_chat_id=from_chat_id,
+            message_id=message_id,
+            reply_markup=await UserPanels.to_back(),
+        )
+    await state.set_state(MainState2.natija)
 
 
 executor = ThreadPoolExecutor()
@@ -138,7 +168,7 @@ ___________________________________
         driver.quit()
 
 # === HANDLER: ID qabul qilib, fon threadda ishlatish ===
-@user_router.message(MainState.natija, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
+@user_router.message(MainState2.natija, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
     user_id = msg.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
