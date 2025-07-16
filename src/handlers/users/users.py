@@ -52,7 +52,15 @@ async def check(call: CallbackQuery):
         await bot.send_message(chat_id=ADMIN_ID[0], text=f"Error in check:\n{e}")
 
 
-@user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE, F.state.in_([MainState.natija, MainState.natija2]))
+@user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE, F.state == MainState.natija)
+async def show_orders(message: Message, state: FSMContext):
+    await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
+    try:
+        await state.clear()
+    except: pass
+
+
+@user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE, F.state == MainState.natija2)
 async def show_orders(message: Message, state: FSMContext):
     await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
     try:
