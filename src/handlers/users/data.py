@@ -17,7 +17,6 @@ from datetime import datetime
 import os
 
 from config import bot
-from src.handlers.users.users import MainState
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 
