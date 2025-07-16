@@ -145,7 +145,7 @@ async def handle_id_query(msg: Message):
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(executor, get_abiturient_info_by_id, abt_id)
             if result.startswith("❌"):
-                await msg.answer(f"🚫 <b>ID: {abt_id}</b> uchun ma'lumot topilmadi.", parse_mode="HTML")
+                await msg.answer(f"<b>ID: {abt_id} ma'lumotlari topilmadi. Hali natijangiz chiqmagan ko'rinadi. Siz hozirda natijaga buyurtma berishingiz mumkin .</b>", parse_mode="HTML")
             else:
                 await msg.answer(result, parse_mode="HTML")
         except Exception as e:
