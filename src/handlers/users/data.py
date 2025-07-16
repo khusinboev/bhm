@@ -70,12 +70,15 @@ def get_abiturient_info_by_id(user_id: str):
         screenshot4 = f"screens/screen_detail_opened_{int(time.time())}.png"
         driver.save_screenshot(screenshot4)
 
-        print(wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.card-header card-div text-center"))).text.strip())
+        fio_element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'F.I.SH')]/b")))
+        fio = fio_element.text.strip()
+        print(fio)
         # FIO
         fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
-        print(fio)
+        # print(fio)
         # Ballar va javoblar (6ta)
-        card_divs = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
+        card_divs = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.card-header.card-div.text-center")))
+
         fanlar = []
 
         for i in range(6):
