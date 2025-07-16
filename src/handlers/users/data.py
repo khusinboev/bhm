@@ -83,26 +83,24 @@ def get_abiturient_info_by_id(user_id: str):
         fio = fio_element.text.strip()
         print(fio)
         # Ballar va javoblar (6ta)
-        card_divs = wait.until(EC.presence_of_all_elements_located(
-            (By.CSS_SELECTOR, "div.card-header.card-div.text-center"))
-        )
+        html = driver.page_source
+        soup = BeautifulSoup(html, "html.parser")
+
+        # To‘g‘ri javob va ball bloklarini qidiramiz
+        card_headers = soup.select("div.card-header.card-div.text-center")
 
         fanlar = []
-        num = 0
-        for card in card_divs[:6]:
-            num += 1
-            # card ning ichki HTML'ni olish
-            html = card.get_attribute("innerHTML")
-            soup = BeautifulSoup(html, "html.parser")
-
-            bolds = soup.find_all("b")
-            print(bolds)
-            if num > 3:
-                correct = bolds[0].text.strip()
-                score = bolds[1].text.strip()
-                fanlar.append((correct, score))
-            else:
-                fanlar.append(("?", "?"))
+        for header in card_headers:
+            text = header.get_text(strip=True)
+            print(text)
+            if "To’g’ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
+                bolds = header.find_all("b")
+                if len(bolds) == 2:
+                    correct = bolds[0].text.strip()
+                    score = bolds[1].text.strip()
+                    fanlar.append((correct, score))
+                else:
+                    fanlar.append(("?", "?"))
 
         # Qolgan ballar
         imtiyoz = get_ball_by_label("Imtiyoz ball", driver)
