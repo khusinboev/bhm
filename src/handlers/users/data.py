@@ -40,25 +40,6 @@ async def show_orders(message: Message, state: FSMContext):
 
 @data_router.message(F.text == "📊 Natija", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message, state: FSMContext):
-    # user_id = message.from_user.id
-    # check_status, channels = await CheckData.check_member(bot, user_id)
-    # if not check_status:
-    #     await message.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
-    #                          reply_markup=await CheckData.channels_btn(channels))
-    #     return
-    # current_dir = os.path.dirname(os.path.abspath(__file__))
-    # file_path = os.path.join(current_dir, "havola.txt")
-    # with open(file_path, "r", encoding="utf-8") as f:
-    #     havola =  f.read().strip()
-    # btn = InlineKeyboardMarkup(
-    #     inline_keyboard=[
-    #         [InlineKeyboardButton(
-    #             text="📲 Natijani ko'rish",
-    #             web_app=WebAppInfo(url=havola)
-    #         )]
-    #     ]
-    # )
-    #await message.answer("<b>👇🏻 Quyidagi tugmani bosib natijangizni ko'rishingiz mumkin</b>", reply_markup=btn,  parse_mode="html")
 
     from_chat_id = "@Second_Polat"
     message_id = 733
@@ -101,13 +82,13 @@ def get_abiturient_info_by_id(user_id: str):
         driver.execute_script("document.getElementById('SearchBtn1').click();")
         print("🔍 Qidiruv bosildi")
 
-        time.sleep(2)
+        time.sleep(1)
         detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_btn.click()
         print("📄 Batafsil sahifaga o‘tildi")
 
         # Sahifa yuklanishini kutish
-        time.sleep(2)
+        time.sleep(1)
 
         # FIO olish
         fio_element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'F.I.SH')]/b")))
