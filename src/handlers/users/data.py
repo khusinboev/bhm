@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.enums import ChatType
+from bs4 import BeautifulSoup
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -88,11 +89,15 @@ def get_abiturient_info_by_id(user_id: str):
 
         fanlar = []
 
-        for card in card_divs:
-            items = card.find_elements(By.TAG_NAME, "b")
-            if len(items) >= 2:
-                correct = items[0].text.strip()
-                score = items[1].text.strip()
+        for card in card_divs[:6]:
+            # card ning ichki HTML'ni olish
+            html = card.get_attribute("innerHTML")
+            soup = BeautifulSoup(html, "html.parser")
+
+            bolds = soup.find_all("b")
+            if len(bolds) >= 2:
+                correct = bolds[0].text.strip()
+                score = bolds[1].text.strip()
                 fanlar.append((correct, score))
             else:
                 fanlar.append(("?", "?"))
