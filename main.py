@@ -23,7 +23,7 @@ async def on_startup() -> None:
 async def main():
     await on_startup()
     from src.handlers.users.data import on_startup
-    await dp.start_polling(bot, on_startup=on_startup)
+    
     logging.basicConfig(level=logging.INFO)
 
     dp.update.middleware(RegisterUserMiddleware())
@@ -43,7 +43,7 @@ async def main():
     dp.include_router(channel_router)
     dp.include_router(other_router)
 
-    await dp.start_polling(bot)
+    await dp.start_polling(bot, on_startup=on_startup)
 
 
 if __name__ == "__main__":
