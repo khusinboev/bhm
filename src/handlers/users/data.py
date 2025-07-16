@@ -17,7 +17,7 @@ data_router = Router()
 executor = ThreadPoolExecutor()
 
 
-def get_abiturient_info_by_id(user_id: str) -> str:
+def get_abiturient_info_by_id(user_id: str):
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -132,16 +132,16 @@ async def handle_id_query(msg: Message):
     abt_id = msg.text.strip()
     await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
 
-    try:
-        loop = asyncio.get_running_loop()
-        # get_abiturient_info_by_id funksiyani fon threadda chaqirish
-        text = await loop.run_in_executor(executor, lambda: get_abiturient_info_by_id(abt_id))
+    async def process_and_reply():
+        try:
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(executor, get_abiturient_info_by_id, abt_id)
+            if result.startswith("❌"):
+                await msg.answer(f"🚫 <b>ID: {abt_id}</b> uchun ma'lumot topilmadi.", parse_mode="HTML")
+            else:
+                await msg.answer(result, parse_mode="HTML")
+        except Exception as e:
+            logging.exception("❌ Ichki xatolik:")
+            await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.")
 
-        if text.startswith("❌") or "Xatolik" in text:
-            await msg.answer(f"🚫 <b>ID: {abt_id}</b> uchun ma'lumot topilmadi.", parse_mode="HTML")
-        else:
-            await msg.answer(text, parse_mode="HTML")
-
-    except Exception as e:
-        logging.exception("❌ Ichki xatolik:")
-        await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.")
+    asyncio.create_task(process_and_reply())
