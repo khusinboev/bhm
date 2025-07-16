@@ -30,7 +30,7 @@ def get_abiturient_info_by_id(user_id: str) -> str:
 
     try:
         driver.get("https://mandat.uzbmb.uz/")
-        wait = WebDriverWait(driver, 15)
+        wait = WebDriverWait(driver, 20)
 
         # Formani to‘ldirish va qidirish
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
@@ -38,7 +38,7 @@ def get_abiturient_info_by_id(user_id: str) -> str:
 
         input_field.clear()
         input_field.send_keys(str(user_id))
-        time.sleep(1)
+        time.sleep(2)
         search_btn.click()
 
         # Batafsil tugmasini bosish
