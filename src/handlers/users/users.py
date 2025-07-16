@@ -63,6 +63,10 @@ async def show_orders(message: Message, state: FSMContext):
 @user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE, F.state == MainState.natija2)
 async def show_orders(message: Message, state: FSMContext):
     await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
+
+@user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE)
+async def show_orders(message: Message, state: FSMContext):
+    await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
     try:
         await state.clear()
     except: pass
