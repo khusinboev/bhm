@@ -71,7 +71,17 @@ async def show_orders(message: Message):
             )]
         ]
     )
-    await message.answer("<b>👇🏻 Quyidagi tugmani bosib natijangizni ko'rishingiz mumkin</b>", reply_markup=btn,  parse_mode="html")
+    #await message.answer("<b>👇🏻 Quyidagi tugmani bosib natijangizni ko'rishingiz mumkin</b>", reply_markup=btn,  parse_mode="html")
+
+    from_chat_id = "@Second_Polat"
+    message_id = 733
+
+        # copy qilish (bot o‘z nomidan yuboradi)
+    await bot.copy_message(
+            chat_id=message.chat.id,
+            from_chat_id=from_chat_id,
+            message_id=message_id
+        )
 
 
 @user_router.message(F.text == "📝 Natijaga buyurtma berish", F.chat.type == ChatType.PRIVATE)
