@@ -1,5 +1,8 @@
 import logging
 import time
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
 from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.enums import ChatType
@@ -10,12 +13,17 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+# Router
 data_router = Router()
 
+# Executor (fon vazifalar uchun)
+executor = ThreadPoolExecutor(max_workers=2)
 
+
+# === FUNKSIYA: ID bo‘yicha abiturient ma’lumotlarini olish ===
 def get_abiturient_info_by_id(user_id: str) -> str:
     options = Options()
-    options.add_argument("--headless=new")
+    options.add_argument("--headless=new")  # Headless rejim
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -32,7 +40,7 @@ def get_abiturient_info_by_id(user_id: str) -> str:
         driver.get("https://mandat.uzbmb.uz/")
         wait = WebDriverWait(driver, 20)
 
-        # Formani to‘ldirish va qidirish
+        # Formani to‘ldirish
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         search_btn = wait.until(EC.element_to_be_clickable((By.ID, "SearchBtn1")))
 
@@ -41,26 +49,26 @@ def get_abiturient_info_by_id(user_id: str) -> str:
         time.sleep(2)
         search_btn.click()
 
-        # Batafsil tugmasini bosish
+        # Batafsil tugmasi
         detail_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_button.click()
 
-        # FIO topish
+        # FIO
         fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
 
-        # Ball va to‘g‘ri javoblar
+        # Fan natijalari
         card_headers = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
-        print("balllllllllllllllllllllllllllllllllllllllllllllllllllllll")
-        # Asosiy fanlar
+        if len(card_headers) < 11:
+            return "❌ Ma'lumot to‘liq emas. Iltimos, keyinroq urinib ko‘ring."
+
         fanlar = []
-        for i in range(3):  # 3ta asosiy fan
+        for i in range(3):  # 3 asosiy fan
             texts = card_headers[i].text.split("\n")
             correct = texts[1].replace("To’g’ri javoblar soni:", "").strip()
             score = texts[3].replace("Ball:", "").strip()
             fanlar.append((correct, score))
 
-        # Ixtisoslik fanlari
-        for i in range(3, 6):
+        for i in range(3, 6):  # Ixtisoslik fanlari
             texts = card_headers[i].text.split("\n")
             correct = texts[0].replace("To’g’ri javoblar soni:", "").strip()
             score = texts[2].replace("Ball:", "").strip()
@@ -76,7 +84,7 @@ def get_abiturient_info_by_id(user_id: str) -> str:
         # Vaqt
         vaqt = driver.find_element(By.TAG_NAME, "small").text.strip()
 
-        # Matn tayyorlash
+        # Matn
         matn = f"""<b>BAKALAVR 2025</b>
 ___________________________________
 <b>FIO</b>:  {fio}
@@ -124,19 +132,22 @@ ___________________________________
         driver.quit()
 
 
-# === HANDLER ===
+# === HANDLER: ID qabul qilib, fon threadda ishlatish ===
 @data_router.message(F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
     abt_id = msg.text.strip()
-
     await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
 
     try:
-        text = get_abiturient_info_by_id(abt_id)
+        loop = asyncio.get_running_loop()
+        # get_abiturient_info_by_id funksiyani fon threadda chaqirish
+        text = await loop.run_in_executor(executor, lambda: get_abiturient_info_by_id(abt_id))
+
         if text.startswith("❌") or "Xatolik" in text:
             await msg.answer(f"🚫 <b>ID: {abt_id}</b> uchun ma'lumot topilmadi.", parse_mode="HTML")
         else:
             await msg.answer(text, parse_mode="HTML")
+
     except Exception as e:
         logging.exception("❌ Ichki xatolik:")
         await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.")
