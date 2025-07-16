@@ -27,34 +27,34 @@ def get_abiturient_info_by_id(user_id: str):
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
-
+    print("1-bosqich")
     driver = webdriver.Chrome(options=options)
-
+    print("2-bosqich")
     try:
         driver.get("https://mandat.uzbmb.uz/")
-
+        print("3-bosqich")
         wait = WebDriverWait(driver, 30)
-
+        print("4-bosqich")
         # Sahifa to‘liq yuklanganini kutish
         wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
-
+        print("5-bosqich")
         # Kirish qutisi va tugmani kutish
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         search_btn_elem = wait.until(EC.presence_of_element_located((By.ID, "SearchBtn1")))
         wait.until(EC.element_to_be_clickable((By.ID, "SearchBtn1")))
-
+        print("6-bosqich")
         input_field.clear()
         input_field.send_keys(str(user_id))
         time.sleep(1.5)
         search_btn_elem.click()
-
+        print("7-bosqich")
         # "Batafsil" tugmasi
         detail_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_button.click()
-
+        print("8-bosqich")
         # FIO
         fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
-
+        print("9-bosqich")
         # Ballar va fanlar
         card_headers = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
         fanlar = []
