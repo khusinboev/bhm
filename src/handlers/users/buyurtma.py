@@ -5,13 +5,14 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
 from config import bot, ADMIN_ID, sql, db
+from src.handlers.users.users import MainState
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 
 buyurtma_router = Router()
 
 
-@buyurtma_router.message(F.text == "📁 Mening buyurtmalarim", F.chat.type == ChatType.PRIVATE)
+@buyurtma_router.message(F.text == "📁 Mening buyurtmalarim", F.chat.type == ChatType.PRIVATE, MainState.natija2)
 async def show_orders(message: Message):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
@@ -54,7 +55,7 @@ async def show_orders(message: Message):
     for chunk in chunks:
         await message.answer(chunk, parse_mode="html")
 
-@buyurtma_router.message(F.document, F.chat.type == "private")
+@buyurtma_router.message(F.document, F.chat.type == "private", MainState.natija2)
 async def handle_pdf(message: Message):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
@@ -118,10 +119,18 @@ async def handle_pdf(message: Message):
     except Exception as e:
         await message.answer(f"❌ Xatolik yuz berdi: {e}")
 
-@buyurtma_router.message(F.photo, F.chat.type == "private")
+@buyurtma_router.message(F.photo, F.chat.type == "private", MainState.natija2)
 async def handle_photo_warning(message: Message):
     await message.answer(
         "✋ <b>Rasm(screenshot) emas PDF fayl jo'natishingizni so'raymiz</b>\n\n"
         "<i>Rasm formatidagi fayllardan matnni o'qib olishdagi noaniqliklar sabab BOT faqat PDF faylini qo'llab quvvatlaydi. Iltimos qayd varaqangizning haqiqiy PDF shaklidagi faylini jo'nating❕</i>",
-        parse_mode="html"
+        parse_mode="html", reply_markup=await UserPanels.main()
+    )
+
+@buyurtma_router.message(F.chat.type == "private", MainState.natija2)
+async def handle_photo_warning(message: Message):
+    await message.answer(
+        "✋ <b>Rasm(screenshot) emas PDF fayl jo'natishingizni so'raymiz</b>\n\n"
+        "<i>Rasm formatidagi fayllardan matnni o'qib olishdagi noaniqliklar sabab BOT faqat PDF faylini qo'llab quvvatlaydi. Iltimos qayd varaqangizning haqiqiy PDF shaklidagi faylini jo'nating❕</i>",
+        parse_mode="html", reply_markup=await UserPanels.main()
     )

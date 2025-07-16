@@ -99,7 +99,7 @@ class UserPanels:
     @staticmethod
     async def to_back():
         btn = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🔙 Ortga"), KeyboardButton(text="🔙 Bosh menu")]], resize_keyboard=True,
+            keyboard=[[KeyboardButton(text="🔙 Ortga")]], resize_keyboard=True,
         )
         return btn
 
