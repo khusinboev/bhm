@@ -13,78 +13,72 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# Router
 data_router = Router()
-
-# Executor (fon vazifalar uchun)
-executor = ThreadPoolExecutor(max_workers=2)
+executor = ThreadPoolExecutor()
 
 
-# === FUNKSIYA: ID bo‘yicha abiturient ma’lumotlarini olish ===
 def get_abiturient_info_by_id(user_id: str) -> str:
     options = Options()
-    options.add_argument("--headless=new")  # Headless rejim
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument(
-        "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
-    )
+    options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
 
     driver = webdriver.Chrome(options=options)
 
     try:
         driver.get("https://mandat.uzbmb.uz/")
-        wait = WebDriverWait(driver, 20)
 
-        # Formani to‘ldirish
+        wait = WebDriverWait(driver, 30)
+
+        # Sahifa to‘liq yuklanganini kutish
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+
+        # Kirish qutisi va tugmani kutish
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
-        search_btn = wait.until(EC.element_to_be_clickable((By.ID, "SearchBtn1")))
+        search_btn_elem = wait.until(EC.presence_of_element_located((By.ID, "SearchBtn1")))
+        wait.until(EC.element_to_be_clickable((By.ID, "SearchBtn1")))
 
         input_field.clear()
         input_field.send_keys(str(user_id))
-        time.sleep(2)
-        search_btn.click()
+        time.sleep(1.5)
+        search_btn_elem.click()
 
-        # Batafsil tugmasi
+        # "Batafsil" tugmasi
         detail_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_button.click()
 
         # FIO
         fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
 
-        # Fan natijalari
+        # Ballar va fanlar
         card_headers = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
-        if len(card_headers) < 11:
-            return "❌ Ma'lumot to‘liq emas. Iltimos, keyinroq urinib ko‘ring."
-
         fanlar = []
-        for i in range(3):  # 3 asosiy fan
+
+        for i in range(3):
             texts = card_headers[i].text.split("\n")
             correct = texts[1].replace("To’g’ri javoblar soni:", "").strip()
             score = texts[3].replace("Ball:", "").strip()
             fanlar.append((correct, score))
 
-        for i in range(3, 6):  # Ixtisoslik fanlari
+        for i in range(3, 6):
             texts = card_headers[i].text.split("\n")
             correct = texts[0].replace("To’g’ri javoblar soni:", "").strip()
             score = texts[2].replace("Ball:", "").strip()
             fanlar.append((correct, score))
 
-        # Ballar
         imtiyoz = card_headers[6].find_element(By.TAG_NAME, "b").text.strip()
         ijodiy = card_headers[7].find_element(By.TAG_NAME, "b").text.strip()
         cefr = card_headers[8].find_element(By.TAG_NAME, "b").text.strip()
         milliy = card_headers[9].find_element(By.TAG_NAME, "b").text.strip()
         umumiy = card_headers[10].find_element(By.TAG_NAME, "b").text.strip()
 
-        # Vaqt
         vaqt = driver.find_element(By.TAG_NAME, "small").text.strip()
 
-        # Matn
         matn = f"""<b>BAKALAVR 2025</b>
 ___________________________________
 <b>FIO</b>:  {fio}
