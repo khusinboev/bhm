@@ -24,6 +24,13 @@ from src.keyboards.keyboard_func import CheckData
 os.makedirs("screens", exist_ok=True)
 
 data_router = Router()
+
+
+
+
+
+
+
 executor = ThreadPoolExecutor()
 
 def get_abiturient_info_by_id(user_id: str):
@@ -131,7 +138,7 @@ ___________________________________
         driver.quit()
 
 # === HANDLER: ID qabul qilib, fon threadda ishlatish ===
-@data_router.message(F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE, F.state == MainState.natija)
+@user_router.message(MainState.natija, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
     user_id = msg.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
@@ -157,7 +164,7 @@ async def handle_id_query(msg: Message):
     asyncio.create_task(process_and_reply())
 
 
-@data_router.message(F.chat.type == ChatType.PRIVATE, F.state == MainState.natija)
+@data_router.message(MainState.natija, F.chat.type == ChatType.PRIVATE)
 async def handle_id_query2(msg: Message):
     from_chat_id = "@Second_Polat"
     message_id = 733
