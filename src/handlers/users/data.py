@@ -83,32 +83,25 @@ def get_abiturient_info_by_id(user_id: str):
         fio = fio_element.text.strip()
         print(fio)
         # Ballar va javoblar (6ta)
-        html_source = driver.page_source
-        soup = BeautifulSoup(html_source, "html.parser")
-
-        # Faqat to'g'ri javoblar soni va ball bo'lgan bloklarni ajratamiz
-        cards = soup.find_all("div", class_="card-header card-div text-center")
+        card_divs = wait.until(EC.presence_of_all_elements_located(
+            (By.CSS_SELECTOR, "div.card-header.card-div.text-center"))
+        )
 
         fanlar = []
 
-        for card in cards:
-            text = card.get_text(strip=True)
-            if "To’g’ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
-                # Har bir b teglarini aniqlab ajratamiz
-                bolds = card.find_all("b")
-                if len(bolds) == 2:
-                    correct = bolds[0].text.strip()
-                    score = bolds[1].text.strip()
-                    fanlar.append((correct, score))
-                else:
-                    # fallback: regex bilan topamiz
-                    import re
-                    match = re.findall(r"To.?g.?ri javoblar soni:.*?(\d+).*?Ball:.*?(\d+[,.]?\d*)", card.text,
-                                       re.DOTALL)
-                    if match:
-                        fanlar.append((match[0][0], match[0][1]))
-                    else:
-                        fanlar.append(("?", "?"))
+        for card in card_divs[:6]:
+            # card ning ichki HTML'ni olish
+            html = card.get_attribute("innerHTML")
+            soup = BeautifulSoup(html, "html.parser")
+
+            bolds = soup.find_all("b")
+            print(bolds)
+            if len(bolds) >= 2:
+                correct = bolds[0].text.strip()
+                score = bolds[1].text.strip()
+                fanlar.append((correct, score))
+            else:
+                fanlar.append(("?", "?"))
 
         # Qolgan ballar
         imtiyoz = get_ball_by_label("Imtiyoz ball", driver)
