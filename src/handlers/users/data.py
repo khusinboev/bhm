@@ -130,7 +130,7 @@ ___________________________________
         driver.quit()
 
 # === HANDLER: ID qabul qilib, fon threadda ishlatish ===
-@data_router.message(F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE, MainState.natija)
+@data_router.message(F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE, F.state == MainState.natija)
 async def handle_id_query(msg: Message):
     user_id = msg.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
