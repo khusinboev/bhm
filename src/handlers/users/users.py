@@ -104,7 +104,7 @@ async def show_orders(message: Message, state: FSMContext):
 @user_router.message(F.text == "📝 Natijaga buyurtma berish", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message, state: FSMContext):
     await message.answer("Natijangizni buyurtma qilish uchun '<b>Abituriyent ruxsatnomasi</b>'ni <b>PDF</b> faylini yuboring", reply_markup=await UserPanels.main(),  parse_mode="html")
-    await state.set_state(MainState.natija)
+    await state.set_state(MainState.natija2)
 
 
 @user_router.message(F.text.startswith("kirit"), F.chat.type == ChatType.PRIVATE, F.from_user.id.in_(ADMIN_ID))
