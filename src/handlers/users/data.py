@@ -12,6 +12,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import os
+os.makedirs("screens", exist_ok=True)
 
 data_router = Router()
 executor = ThreadPoolExecutor()
@@ -32,69 +34,64 @@ def get_abiturient_info_by_id(user_id: str):
 
     driver = webdriver.Chrome(options=options)
     try:
-        print("1️⃣ Saytga kirilmoqda...")
+        print("🌐 Saytga kirilmoqda...")
         driver.get("https://mandat.uzbmb.uz/")
         wait = WebDriverWait(driver, 30)
-
-        # Sahifa yuklanishini kutish
         wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
-        print("2️⃣ Sahifa to‘liq yuklandi")
 
-        # Screenshot: sahifa yuklangandan keyin
-        screenshot1 = f"screenshot_ready_{int(time.time())}.png"
+        # Screenshot 1: Sahifa to'liq yuklangan
+        screenshot1 = f"screens/screen_ready_{int(time.time())}.png"
         driver.save_screenshot(screenshot1)
-        print(f"📸 Screenshot #1 saqlandi: {screenshot1}")
 
-        # Input va tugmalarni topamiz
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         input_field.clear()
         input_field.send_keys(str(user_id))
         time.sleep(1.5)
 
-        # Screenshot: ID kiritilgandan keyin
-        screenshot2 = f"screenshot_id_entered_{int(time.time())}.png"
+        # Screenshot 2: ID kiritilgan
+        screenshot2 = f"screens/screen_id_entered_{int(time.time())}.png"
         driver.save_screenshot(screenshot2)
-        print(f"📸 Screenshot #2 saqlandi: {screenshot2}")
 
-        # JS orqali bosamiz
         driver.execute_script("document.getElementById('SearchBtn1').click();")
-        print("✅ Qidirish tugmasi JS orqali bosildi")
+        print("🔍 Qidiruv bosildi")
 
-        # Screenshot: tugmani bosgandan keyin
+        # Screenshot 3: Qidiruvdan keyin
         time.sleep(2)
-        screenshot3 = f"screenshot_after_click_{int(time.time())}.png"
+        screenshot3 = f"screens/screen_after_search_{int(time.time())}.png"
         driver.save_screenshot(screenshot3)
-        print(f"📸 Screenshot #3 saqlandi: {screenshot3}")
 
-        # Batafsil tugmasini kutamiz
-        detail_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
-        detail_button.click()
-        print("📋 Batafsil tugmasi bosildi")
+        # Batafsil tugmasini bosish
+        detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
+        detail_btn.click()
+        print("📄 Batafsil sahifaga o‘tildi")
+
+        # Screenshot 4: Batafsil ochilgan
+        time.sleep(2)
+        screenshot4 = f"screens/screen_detail_opened_{int(time.time())}.png"
+        driver.save_screenshot(screenshot4)
 
         # FIO
         fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
 
-        # Ballar
-        card_headers = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
+        # Ballar va javoblar (6ta)
+        card_divs = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
         fanlar = []
 
-        for i in range(3):
-            texts = card_headers[i].text.split("\n")
-            correct = texts[1].replace("To’g’ri javoblar soni:", "").strip()
-            score = texts[3].replace("Ball:", "").strip()
-            fanlar.append((correct, score))
+        for i in range(6):
+            items = card_divs[i].find_elements(By.TAG_NAME, "b")
+            if len(items) >= 2:
+                correct = items[0].text.strip()
+                score = items[1].text.strip()
+                fanlar.append((correct, score))
+            else:
+                fanlar.append(("?", "?"))
 
-        for i in range(3, 6):
-            texts = card_headers[i].text.split("\n")
-            correct = texts[0].replace("To’g’ri javoblar soni:", "").strip()
-            score = texts[2].replace("Ball:", "").strip()
-            fanlar.append((correct, score))
-
-        imtiyoz = card_headers[6].find_element(By.TAG_NAME, "b").text.strip()
-        ijodiy = card_headers[7].find_element(By.TAG_NAME, "b").text.strip()
-        cefr = card_headers[8].find_element(By.TAG_NAME, "b").text.strip()
-        milliy = card_headers[9].find_element(By.TAG_NAME, "b").text.strip()
-        umumiy = card_headers[10].find_element(By.TAG_NAME, "b").text.strip()
+        # Qolgan ballar
+        imtiyoz = card_divs[6].find_element(By.TAG_NAME, "b").text.strip()
+        ijodiy = card_divs[7].find_element(By.TAG_NAME, "b").text.strip()
+        cefr = card_divs[8].find_element(By.TAG_NAME, "b").text.strip()
+        milliy = card_divs[9].find_element(By.TAG_NAME, "b").text.strip()
+        umumiy = card_divs[10].find_element(By.TAG_NAME, "b").text.strip()
 
         vaqt = driver.find_element(By.TAG_NAME, "small").text.strip()
 
@@ -124,6 +121,10 @@ ___________________________________
 5️⃣ Ona tili va adabiyot 
 30 ta savol:  {fanlar[4][1]} ball  
 ({fanlar[4][0]} ta to'g'ri javob)
+
+6️⃣ Chet tili (yoki qo‘shimcha) 
+30 ta savol:  {fanlar[5][1]} ball  
+({fanlar[5][0]} ta to'g'ri javob)
 ___________________________________
 🔹 Chet tili  sertifikati:  {cefr} ball
 🔹 Ijodiy ball:  {ijodiy} ball
