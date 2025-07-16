@@ -20,14 +20,6 @@ os.makedirs("screens", exist_ok=True)
 data_router = Router()
 executor = ThreadPoolExecutor()
 
-def get_ball_by_label(label: str, driver: webdriver):
-    try:
-        return driver.find_element(
-            By.XPATH, f"//div[contains(text(),'{label}')]/following-sibling::b"
-        ).text.strip()
-    except:
-        return "?"
-
 def get_abiturient_info_by_id(user_id: str):
     options = Options()
     options.add_argument("--headless=new")
@@ -48,108 +40,76 @@ def get_abiturient_info_by_id(user_id: str):
         wait = WebDriverWait(driver, 30)
         wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
 
-        # Screenshot 1: Sahifa to'liq yuklangan
-        screenshot1 = f"screens/screen_ready_{int(time.time())}.png"
-        driver.save_screenshot(screenshot1)
-
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         input_field.clear()
         input_field.send_keys(str(user_id))
         time.sleep(1.5)
 
-        # Screenshot 2: ID kiritilgan
-        screenshot2 = f"screens/screen_id_entered_{int(time.time())}.png"
-        driver.save_screenshot(screenshot2)
-
         driver.execute_script("document.getElementById('SearchBtn1').click();")
         print("🔍 Qidiruv bosildi")
 
-        # Screenshot 3: Qidiruvdan keyin
         time.sleep(2)
-        screenshot3 = f"screens/screen_after_search_{int(time.time())}.png"
-        driver.save_screenshot(screenshot3)
-
-        # Batafsil tugmasini bosish
         detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_btn.click()
         print("📄 Batafsil sahifaga o‘tildi")
 
-        # Screenshot 4: Batafsil ochilgan
+        # Sahifa yuklanishini kutish
         time.sleep(2)
-        screenshot4 = f"screens/screen_detail_opened_{int(time.time())}.png"
-        driver.save_screenshot(screenshot4)
 
+        # FIO olish
         fio_element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'F.I.SH')]/b")))
         fio = fio_element.text.strip()
-        print(fio)
-        # Ballar va javoblar (6ta)
+
+        # Sahifa HTML
         html = driver.page_source
         soup = BeautifulSoup(html, "html.parser")
 
-        # To‘g‘ri javob va ball bloklarini qidiramiz
+        # Faqat kerakli 3 ta ball bloklarini olish
         card_headers = soup.select("div.card-header.card-div.text-center")
-
         fanlar = []
         for header in card_headers:
             text = header.get_text(strip=True)
-            print(text)
             if "To’g’ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
                 bolds = header.find_all("b")
                 if len(bolds) == 2:
                     correct = bolds[0].text.strip()
                     score = bolds[1].text.strip()
                     fanlar.append((correct, score))
-                else:
-                    fanlar.append(("?", "?"))
+                if len(fanlar) >= 3:
+                    break  # faqat 3 ta blok yetarli
 
-        # Qolgan ballar
-        imtiyoz = get_ball_by_label("Imtiyoz ball", driver)
-        ijodiy = get_ball_by_label("Ijodiy ball", driver)
-        cefr = get_ball_by_label("CEFR ball", driver)
-        milliy = get_ball_by_label("Milliy sertifikat", driver)
-        umumiy = get_ball_by_label("Umumiy ball", driver)
+        # Umumiy ball olish
+        umumiy_ball = "?"
+        umumiy_div = soup.find("div", class_="card-header card-div text-center", string=lambda t: t and "Umumiy ball" in t)
+        if not umumiy_div:
+            # Yoki boshqa usul bilan izlash:
+            umumiy_div = soup.find("div", class_="bg-success")
+        if umumiy_div:
+            umumiy_b = umumiy_div.find("b")
+            if umumiy_b:
+                umumiy_ball = umumiy_b.text.strip()
 
+        # Vaqt
         vaqt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         matn = f"""<b>BAKALAVR 2025</b>
 ___________________________________
 <b>FIO</b>:  {fio}
-___________________________________
 🆔:  <b>{user_id}</b>
-<b>Ta'lim tili</b>:  O'zbekcha
 ___________________________________
-1️⃣ Ona tili 
-10 ta savol:  {fanlar[0][1]} ball 
-({fanlar[0][0]} ta to'g'ri javob)
+1️⃣ Majburiy fanlar 
+To‘g‘ri javoblar soni: {fanlar[0][0]} ta  
+Ball: {fanlar[0][1]}
 
-2️⃣ Matematika 
-10 ta savol:  {fanlar[1][1]} ball 
-({fanlar[1][0]} ta to'g'ri javob)
+2️⃣ 1-mutaxassislik fani 
+To‘g‘ri javoblar soni: {fanlar[1][0]} ta  
+Ball: {fanlar[1][1]}
 
-3️⃣ Tarix 
-10 ta savol:  {fanlar[2][1]} ball 
-({fanlar[2][0]} ta to'g'ri javob)
-
-4️⃣ Tarix 
-30 ta savol:  {fanlar[3][1]} ball  
-({fanlar[3][0]} ta to'g'ri javob)
-
-5️⃣ Ona tili va adabiyot 
-30 ta savol:  {fanlar[4][1]} ball  
-({fanlar[4][0]} ta to'g'ri javob)
-
-6️⃣ Chet tili (yoki qo‘shimcha) 
-30 ta savol:  {fanlar[5][1]} ball  
-({fanlar[5][0]} ta to'g'ri javob)
+3️⃣ 2-mutaxassislik fani 
+To‘g‘ri javoblar soni: {fanlar[2][0]} ta  
+Ball: {fanlar[2][1]}
 ___________________________________
-🔹 Chet tili  sertifikati:  {cefr} ball
-🔹 Ijodiy ball:  {ijodiy} ball
-🔹 Umumta'lim fan sertifikati:  {milliy} ball
-🔹 Imtiyoz ball:  {imtiyoz} ball
-___________________________________
-
-🔸<b>UMUMIY</b>:  {umumiy} ball
-___________________________________
+✅ <b>Umumiy ball:</b> {umumiy_ball}
 ⏰ {vaqt}
 """
         return matn
@@ -160,7 +120,6 @@ ___________________________________
 
     finally:
         driver.quit()
-
 
 # === HANDLER: ID qabul qilib, fon threadda ishlatish ===
 @data_router.message(F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
