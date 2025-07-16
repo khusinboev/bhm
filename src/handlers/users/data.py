@@ -12,12 +12,20 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from datetime import datetime
 import os
 os.makedirs("screens", exist_ok=True)
 
 data_router = Router()
 executor = ThreadPoolExecutor()
 
+def get_ball_by_label(label: str, driver: webdriver):
+    try:
+        return driver.find_element(
+            By.XPATH, f"//div[contains(text(),'{label}')]/following-sibling::b"
+        ).text.strip()
+    except:
+        return "?"
 
 def get_abiturient_info_by_id(user_id: str):
     options = Options()
@@ -73,16 +81,15 @@ def get_abiturient_info_by_id(user_id: str):
         fio_element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'F.I.SH')]/b")))
         fio = fio_element.text.strip()
         print(fio)
-        # FIO
-        fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
-        # print(fio)
         # Ballar va javoblar (6ta)
-        card_divs = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.card-header.card-div.text-center")))
+        card_divs = wait.until(EC.presence_of_all_elements_located(
+            (By.CSS_SELECTOR, "div.card-header.card-div.text-center"))
+        )
 
         fanlar = []
 
-        for i in range(6):
-            items = card_divs[i].find_elements(By.TAG_NAME, "b")
+        for card in card_divs:
+            items = card.find_elements(By.TAG_NAME, "b")
             if len(items) >= 2:
                 correct = items[0].text.strip()
                 score = items[1].text.strip()
@@ -91,13 +98,13 @@ def get_abiturient_info_by_id(user_id: str):
                 fanlar.append(("?", "?"))
 
         # Qolgan ballar
-        imtiyoz = card_divs[6].find_element(By.TAG_NAME, "b").text.strip()
-        ijodiy = card_divs[7].find_element(By.TAG_NAME, "b").text.strip()
-        cefr = card_divs[8].find_element(By.TAG_NAME, "b").text.strip()
-        milliy = card_divs[9].find_element(By.TAG_NAME, "b").text.strip()
-        umumiy = card_divs[10].find_element(By.TAG_NAME, "b").text.strip()
+        imtiyoz = get_ball_by_label("Imtiyoz ball", driver)
+        ijodiy = get_ball_by_label("Ijodiy ball", driver)
+        cefr = get_ball_by_label("CEFR ball", driver)
+        milliy = get_ball_by_label("Milliy sertifikat", driver)
+        umumiy = get_ball_by_label("Umumiy ball", driver)
 
-        vaqt = driver.find_element(By.TAG_NAME, "small").text.strip()
+        vaqt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         matn = f"""<b>BAKALAVR 2025</b>
 ___________________________________
