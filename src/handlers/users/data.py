@@ -7,6 +7,7 @@ from aiogram import Router, F
 from aiogram.types import Message
 from aiogram.enums import ChatType
 from bs4 import BeautifulSoup
+from aiogram.fsm.state import StatesGroup, State
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
