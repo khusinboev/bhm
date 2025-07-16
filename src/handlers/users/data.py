@@ -15,7 +15,7 @@ data_router = Router()
 
 def get_abiturient_info_by_id(user_id: str) -> str:
     options = Options()
-    # options.add_argument("--headless=new")
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
