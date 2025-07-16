@@ -15,6 +15,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
 import os
+
+from config import bot
+from src.keyboards.keyboard_func import CheckData
+
 os.makedirs("screens", exist_ok=True)
 
 data_router = Router()
@@ -124,6 +128,12 @@ ___________________________________
 # === HANDLER: ID qabul qilib, fon threadda ishlatish ===
 @data_router.message(F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
+    user_id = msg.from_user.id
+    check_status, channels = await CheckData.check_member(bot, user_id)
+    if not check_status:
+        await msg.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
+                             reply_markup=await CheckData.channels_btn(channels))
+        return
     abt_id = msg.text.strip()
     await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
 
