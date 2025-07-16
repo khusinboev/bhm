@@ -64,7 +64,7 @@ async def check(call: CallbackQuery):
         await bot.send_message(chat_id=ADMIN_ID[0], text=f"Error in check:\n{e}")
 
 
-@user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE, F.state == MainState.natija)
+@user_router.message(MainState.natija, F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message, state: FSMContext):
     await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
     try:
@@ -72,7 +72,7 @@ async def show_orders(message: Message, state: FSMContext):
     except: pass
 
 
-@user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE, F.state == MainState.natija2)
+@user_router.message(MainState.natija2, F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message, state: FSMContext):
     await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
 
@@ -122,24 +122,7 @@ async def show_orders(message: Message, state: FSMContext):
     await message.answer("Natijangizni buyurtma qilish uchun '<b>Abituriyent ruxsatnomasi</b>'ni <b>PDF</b> faylini yuboring", reply_markup=await UserPanels.main(),  parse_mode="html")
     await state.set_state(MainState.natija2)
 
-
-@user_router.message(F.text.startswith("kirit"), F.chat.type == ChatType.PRIVATE, F.from_user.id.in_(ADMIN_ID))
-async def save_link_to_txt(message: Message):
-    # Regex orqali havolani ajratamiz
-    match = re.search(r"https?://\S+", message.text)
-    if match:
-        url = match.group()
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(current_dir, "havola.txt")
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(f'{url}')
-        await message.answer(f"✅ Havola saqlandi:\n{url}")
-    else:
-        await message.answer("❗ Havola topilmadi. Format: \n\n<code>kirit https://...</code>")
-
-
-@user_router.message(F.text == "📁 Mening buyurtmalarim", F.state == MainState.natija2, F.chat.type == ChatType.PRIVATE)
+@user_router.message(MainState.natija2, F.text == "📁 Mening buyurtmalarim", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
@@ -182,7 +165,7 @@ async def show_orders(message: Message):
     for chunk in chunks:
         await message.answer(chunk, parse_mode="html")
 
-@user_router.message(F.document, F.state == MainState.natija2, F.chat.type == ChatType.PRIVATE)
+@user_router.message(MainState.natija2, F.document, F.chat.type == ChatType.PRIVATE)
 async def handle_pdf(message: Message):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
@@ -246,7 +229,7 @@ async def handle_pdf(message: Message):
     except Exception as e:
         await message.answer(f"❌ Xatolik yuz berdi: {e}")
 
-@user_router.message(F.photo, F.chat.type == ChatType.PRIVATE, F.state == MainState.natija2)
+@user_router.message(MainState.natija2, F.photo, F.chat.type == ChatType.PRIVATE)
 async def handle_photo_warning(message: Message):
     await message.answer(
         "✋ <b>Rasm(screenshot) emas PDF fayl jo'natishingizni so'raymiz</b>\n\n"
@@ -254,7 +237,7 @@ async def handle_photo_warning(message: Message):
         parse_mode="html", reply_markup=await UserPanels.main()
     )
 
-@user_router.message(F.state == MainState.natija2, F.chat.type == ChatType.PRIVATE)
+@user_router.message( MainState.natija2, F.chat.type == ChatType.PRIVATE)
 async def handle_photo_warning(message: Message):
     await message.answer(
         "✋ <b>Rasm(screenshot) emas PDF fayl jo'natishingizni so'raymiz</b>\n\n"
@@ -370,7 +353,7 @@ ___________________________________
         driver.quit()
 
 # === HANDLER: ID qabul qilib, fon threadda ishlatish ===
-@user_router.message(F.state == MainState.natija, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
+@user_router.message(MainState.natija, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
     user_id = msg.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
@@ -396,7 +379,7 @@ async def handle_id_query(msg: Message):
     asyncio.create_task(process_and_reply())
 
 
-@user_router.message(F.state == MainState.natija, F.chat.type == ChatType.PRIVATE)
+@user_router.message(MainState.natija, F.chat.type == ChatType.PRIVATE)
 async def handle_id_query2(msg: Message):
     from_chat_id = "@Second_Polat"
     message_id = 733
