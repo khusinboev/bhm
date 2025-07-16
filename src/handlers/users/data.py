@@ -50,7 +50,7 @@ def get_abiturient_info_by_id(user_id: str) -> str:
 
         # Ball va to‘g‘ri javoblar
         card_headers = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
-
+        print("balllllllllllllllllllllllllllllllllllllllllllllllllllllll")
         # Asosiy fanlar
         fanlar = []
         for i in range(3):  # 3ta asosiy fan
