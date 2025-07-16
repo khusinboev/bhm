@@ -112,12 +112,6 @@ ___________________________________
         driver.quit()
 
 
-@data_router.message(MainState2.natija, F.text.regexp(r"^\\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
-async def handle_id(msg: Message):
-    await msg.answer("⏳ Navbatga qo‘shildingiz. Kuting...")
-    await request_queue.put(msg)
-
-
 async def process_queue():
     while True:
         msg = await request_queue.get()
@@ -159,3 +153,14 @@ async def go_back(message: Message, state: FSMContext):
 # Bot start paytida navbatni ishga tushirish uchun
 async def on_startup(dispatcher):
     asyncio.create_task(process_queue())
+
+
+
+@data_router.message(MainState2.natija, F.text, F.chat.type == ChatType.PRIVATE)
+async def handle_id(msg: Message):
+    text = msg.text.strip()
+    if text.isdigit() and 6 <= len(text) <= 8:
+        await msg.answer("⏳ Navbatga qo‘shildingiz. Kuting...")
+        await request_queue.put(msg)
+    else:
+        await msg.answer("❗ ID noto‘g‘ri formatda. Iltimos, 6-8 xonali raqam kiriting.")
