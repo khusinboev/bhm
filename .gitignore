@@ -28,7 +28,7 @@ dist/
 
 # .env files for environment variables
 .env
-
+havola.txt
 # Python packaging
 *.egg
 
