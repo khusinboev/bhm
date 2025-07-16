@@ -127,7 +127,7 @@ async def save_link_to_txt(message: Message):
         await message.answer("❗ Havola topilmadi. Format: \n\n<code>kirit https://...</code>")
 
 
-@user_router.message(F.state == MainState.natija2, F.text == "📁 Mening buyurtmalarim", F.chat.type == ChatType.PRIVATE)
+@user_router.message(F.text == "📁 Mening buyurtmalarim", F.state == MainState.natija2, F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
@@ -170,7 +170,7 @@ async def show_orders(message: Message):
     for chunk in chunks:
         await message.answer(chunk, parse_mode="html")
 
-@user_router.message(F.state == MainState.natija2, F.document, F.chat.type == ChatType.PRIVATE)
+@user_router.message(F.document, F.state == MainState.natija2, F.chat.type == ChatType.PRIVATE)
 async def handle_pdf(message: Message):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
