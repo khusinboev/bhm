@@ -1,102 +1,135 @@
 import logging
-
-import fitz
-import aiohttp
-from bs4 import BeautifulSoup
+import time
 from aiogram import Router, F
+from aiogram.types import Message
 from aiogram.enums import ChatType
-from aiogram.filters import CommandStart
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
-from config import bot, ADMIN_ID, sql, db
-from src.keyboards.buttons import UserPanels
-from src.keyboards.keyboard_func import CheckData
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 data_router = Router()
 
 
-async def get_abiturient_info_by_id(user_id: int | str) -> str:
-    detail_url = f"https://mandat.uzbmb.uz/home/abiturient/detail?id={user_id}"
+def get_abiturient_info_by_id(user_id: str) -> str:
+    options = Options()
+    options.add_argument("--headless")  # Brauzerni yashirincha ishlatish
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+
+    driver = webdriver.Chrome(options=options)
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(detail_url, timeout=10) as response:
-                if response.status == 404:
-                    return "❌ Ma'lumot topilmadi (404)."
-                elif response.status != 200:
-                    return f"❌ Server javobi: {response.status}"
+        driver.get("https://mandat.uzbmb.uz/")
+        wait = WebDriverWait(driver, 15)
 
-                html = await response.text()
+        # Formani to‘ldirish va qidirish
+        input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
+        search_btn = wait.until(EC.element_to_be_clickable((By.ID, "SearchBtn1")))
 
-        soup = BeautifulSoup(html, "html.parser")
+        input_field.clear()
+        input_field.send_keys(str(user_id))
+        time.sleep(1)
+        search_btn.click()
 
-        # ❗ H2 o‘zgargan teg
-        h2 = soup.find("h2", class_="text-center text-uppercase")
-        if not h2:
-            return "❌ Ma'lumot topilmadi yoki sahifa strukturasida o'zgarish bor."
+        # Batafsil tugmasini bosish
+        detail_button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
+        detail_button.click()
 
-        fio = h2.text.strip()
+        # FIO topish
+        fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
 
-        info_block = soup.find("div", class_="card-body")
-        if not info_block:
-            return "❌ Ma'lumot topilmadi: 'card-body' bo'limi yo'q."
+        # Ball va to‘g‘ri javoblar
+        card_headers = driver.find_elements(By.CSS_SELECTOR, "div.card-header.card-div.text-center")
 
-        rows = info_block.find_all("tr")
-        results = []
-        for row in rows:
-            cells = row.find_all("td")
-            if len(cells) >= 2:
-                key = cells[0].text.strip()
-                val = cells[1].text.strip()
-                results.append(f"{key}: {val}")
+        # Asosiy fanlar
+        fanlar = []
+        for i in range(3):  # 3ta asosiy fan
+            texts = card_headers[i].text.split("\n")
+            correct = texts[1].replace("To’g’ri javoblar soni:", "").strip()
+            score = texts[3].replace("Ball:", "").strip()
+            fanlar.append((correct, score))
 
-        # ❗ Umumiy ball h3 emas, u .card-footer ichidagi <h4>
-        umumiy_block = soup.find("div", class_="card-footer")
-        umumiy = umumiy_block.find("h4").text.strip() if umumiy_block else "Umumiy ball topilmadi"
+        # Ixtisoslik fanlari
+        for i in range(3, 6):
+            texts = card_headers[i].text.split("\n")
+            correct = texts[0].replace("To’g’ri javoblar soni:", "").strip()
+            score = texts[2].replace("Ball:", "").strip()
+            fanlar.append((correct, score))
 
-        # ❗ Vaqt oxirgi <p> emas, <small> tegi ichida
-        vaqt_tag = soup.find("small")
-        vaqt = vaqt_tag.text.strip() if vaqt_tag else "Vaqt ko‘rsatilmagan"
+        # Ballar
+        imtiyoz = card_headers[6].find_element(By.TAG_NAME, "b").text.strip()
+        ijodiy = card_headers[7].find_element(By.TAG_NAME, "b").text.strip()
+        cefr = card_headers[8].find_element(By.TAG_NAME, "b").text.strip()
+        milliy = card_headers[9].find_element(By.TAG_NAME, "b").text.strip()
+        umumiy = card_headers[10].find_element(By.TAG_NAME, "b").text.strip()
 
-        # Formatlash
-        result = f"""<b>BAKALAVR 2025 |БАКАЛАВР 2025</b>
+        # Vaqt
+        vaqt = driver.find_element(By.TAG_NAME, "small").text.strip()
+
+        # Matn tayyorlash
+        matn = f"""<b>BAKALAVR 2025</b>
 ___________________________________
-<b>FIO| ФИО:</b>  {fio}
+<b>FIO</b>:  {fio}
 ___________________________________
-🆔:  <code>{user_id}</code>
+🆔:  <b>{user_id}</b>
+<b>Ta'lim tili</b>:  O'zbekcha
+___________________________________
+1️⃣ Ona tili 
+10 ta savol:  {fanlar[0][1]} ball 
+({fanlar[0][0]} ta to'g'ri javob)
+
+2️⃣ Matematika 
+10 ta savol:  {fanlar[1][1]} ball 
+({fanlar[1][0]} ta to'g'ri javob)
+
+3️⃣ Tarix 
+10 ta savol:  {fanlar[2][1]} ball 
+({fanlar[2][0]} ta to'g'ri javob)
+
+4️⃣ Tarix 
+30 ta savol:  {fanlar[3][1]} ball  
+({fanlar[3][0]} ta to'g'ri javob)
+
+5️⃣ Ona tili va adabiyot 
+30 ta savol:  {fanlar[4][1]} ball  
+({fanlar[4][0]} ta to'g'ri javob)
+___________________________________
+🔹 Chet tili  sertifikati:  {cefr} ball
+🔹 Ijodiy ball:  {ijodiy} ball
+🔹 Umumta'lim fan sertifikati:  {milliy} ball
+🔹 Imtiyoz ball:  {imtiyoz} ball
+___________________________________
+
+🔸<b>UMUMIY</b>:  {umumiy} ball
+___________________________________
+⏰ {vaqt}
 """
-
-        for line in results:
-            result += f"{line}\n"
-
-        result += f"""___________________________________
-🔸<b>{umumiy}</b>
-___________________________________
-⏰ <i>{vaqt}</i>"""
-
-        return result
-
-    except aiohttp.ClientError:
-        return "❌ Sayt bilan bog‘lanishda xatolik yuz berdi. Internetni tekshirib ko‘ring."
+        return matn
 
     except Exception as e:
-        return f"❗ Ma'lumotni parse qilishda xatolik:\n{e}"
+        logging.exception("❌ Xatolik:")
+        return "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring."
+
+    finally:
+        driver.quit()
 
 
+# === HANDLER ===
 @data_router.message(F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
-    user_id = msg.text.strip()
+    abt_id = msg.text.strip()
 
     await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
 
     try:
-        info_text = await get_abiturient_info_by_id(user_id)
-
-        if "Ma'lumot topilmadi" in info_text or info_text.startswith("❌") or info_text.startswith("❗"):
-            await msg.answer(f"🚫 <b>ID: {user_id}</b> uchun ma'lumot topilmadi.\nIltimos, ID to‘g‘riligini tekshiring.", parse_mode="HTML")
+        text = get_abiturient_info_by_id(abt_id)
+        if text.startswith("❌") or "Xatolik" in text:
+            await msg.answer(f"🚫 <b>ID: {abt_id}</b> uchun ma'lumot topilmadi.", parse_mode="HTML")
         else:
-            await msg.answer(info_text, parse_mode="HTML")
-
+            await msg.answer(text, parse_mode="HTML")
     except Exception as e:
-        logging.exception("❌ Xatolik yuz berdi:")
+        logging.exception("❌ Ichki xatolik:")
         await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.")
