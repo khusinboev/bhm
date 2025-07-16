@@ -3,7 +3,6 @@ import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Tuple, List
-import aiohttp
 from functools import lru_cache
 
 from aiogram import Router, F
@@ -32,53 +31,53 @@ class MainState2(StatesGroup):
     natija = State()
 
 # ThreadPoolExecutor'ni faqat bitta marta yaratish
-executor = ThreadPoolExecutor(max_workers=3)  # Worker sonini cheklash
+executor = ThreadPoolExecutor(max_workers=3)
 
-# Selenium driver pool yaratish
+# Kesh uchun
+result_cache = {}
+CACHE_EXPIRY = 300  # 5 daqiqa
+
 class DriverPool:
     def __init__(self, pool_size=2):
         self.pool = []
         self.pool_size = pool_size
         self.lock = asyncio.Lock()
+        self.options = self._create_options()
     
-    async def get_driver(self):
-        async with self.lock:
-            if self.pool:
-                return self.pool.pop()
-            return self._create_driver()
-    
-    async def return_driver(self, driver):
-        async with self.lock:
-            if len(self.pool) < self.pool_size:
-                self.pool.append(driver)
-            else:
-                try:
-                    driver.quit()
-                except:
-                    pass
-    
-    def _create_driver(self):
+    def _create_options(self):
         options = Options()
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
-        options.add_argument("--window-size=1280,720")  # Kichikroq o'lcham
+        options.add_argument("--window-size=1920,1080")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--disable-logging")
         options.add_argument("--disable-background-timer-throttling")
         options.add_argument("--disable-backgrounding-occluded-windows")
         options.add_argument("--disable-renderer-backgrounding")
-        options.add_argument("--disable-features=TranslateUI")
-        options.add_argument("--disable-ipc-flooding-protection")
         options.add_argument("--memory-pressure-off")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         options.add_argument(
             "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
         )
-        return webdriver.Chrome(options=options)
+        return options
+    
+    def get_driver(self):
+        if self.pool:
+            return self.pool.pop()
+        return webdriver.Chrome(options=self.options)
+    
+    def return_driver(self, driver):
+        if len(self.pool) < self.pool_size:
+            self.pool.append(driver)
+        else:
+            try:
+                driver.quit()
+            except:
+                pass
 
 driver_pool = DriverPool()
 
@@ -110,12 +109,12 @@ _______
 """
 
 def extract_fanlar_info(soup: BeautifulSoup) -> List[Tuple[str, str]]:
-    """Fan ma'lumotlarini ajratib olish"""
+    """Fan ma'lumotlarini ajratib olish - asl kodingizga moslab"""
     card_headers = soup.select("div.card-header.card-div.text-center")
     fanlar = []
     for header in card_headers:
         text = header.get_text(strip=True)
-        if "To'g'ri javoblar soni" in text:
+        if "To'g'ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
             bolds = header.find_all("b")
             if len(bolds) == 2:
                 correct = bolds[0].text.strip()
@@ -126,7 +125,7 @@ def extract_fanlar_info(soup: BeautifulSoup) -> List[Tuple[str, str]]:
     return fanlar
 
 def extract_umumiy_ball(soup: BeautifulSoup) -> str:
-    """Umumiy ballni ajratib olish"""
+    """Umumiy ballni ajratib olish - asl kodingizga moslab"""
     umumiy_ball = "?"
     umumiy_div = soup.find("div", class_="card-header card-div text-center", 
                           string=lambda t: t and "Umumiy ball" in t)
@@ -138,61 +137,60 @@ def extract_umumiy_ball(soup: BeautifulSoup) -> str:
             umumiy_ball = umumiy_b.text.strip()
     return umumiy_ball
 
-async def get_abiturient_info_by_id(user_id: str) -> str:
-    """Optimallashtirilgan ma'lumot olish funksiyasi"""
-    driver = await driver_pool.get_driver()
+def get_abiturient_info_by_id(user_id: str) -> str:
+    """Asl kodingizga asoslangan optimallashtirish"""
+    driver = driver_pool.get_driver()
     try:
         print(f"🌐 Saytga kirilmoqda... ID: {user_id}")
-        
-        # Saytni ochish va kutish
         driver.get("https://mandat.uzbmb.uz/")
-        wait = WebDriverWait(driver, 15)  # Kutish vaqtini qisqartirish
-        
-        # JavaScript ishlab bo'lishini kutish
+        wait = WebDriverWait(driver, 30)
         wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
-        
-        # ID kiritish
+
         input_field = wait.until(EC.presence_of_element_located((By.ID, "AbiturID")))
         input_field.clear()
         input_field.send_keys(str(user_id))
-        
-        # Qidiruv tugmasini bosish
+        time.sleep(1.5)
+
         driver.execute_script("document.getElementById('SearchBtn1').click();")
         print(f"🔍 Qidiruv bosildi - ID: {user_id}")
-        
-        # Detail tugmasini kutish va bosish
+
+        time.sleep(1)
         detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_btn.click()
         print(f"📄 Batafsil sahifaga o'tildi - ID: {user_id}")
-        
+
+        # Sahifa yuklanishini kutish
+        time.sleep(1)
+
         # FIO olish
         fio_element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(text(),'F.I.SH')]/b")))
         fio = fio_element.text.strip()
-        
-        # HTML ni olish va parse qilish
+
+        # Sahifa HTML
         html = driver.page_source
         soup = BeautifulSoup(html, "html.parser")
-        
-        # Ma'lumotlarni ajratib olish
+
+        # Fanlar ma'lumotlarini ajratib olish
         fanlar = extract_fanlar_info(soup)
+
+        # Umumiy ball olish
         umumiy_ball = extract_umumiy_ball(soup)
-        
-        # Natija teksti yaratish
+
+        # Vaqt
+        vaqt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Natija yaratish
         if len(fanlar) >= 3:
-            vaqt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             return format_result_text(fio, user_id, tuple(fanlar), umumiy_ball, vaqt)
         else:
             return f"❌ ID: {user_id} uchun to'liq ma'lumot topilmadi."
-            
+
     except Exception as e:
         logging.exception(f"❌ Xatolik ID {user_id} uchun:")
-        return f"❌ ID: {user_id} uchun ma'lumot olishda xatolik yuz berdi."
-    finally:
-        await driver_pool.return_driver(driver)
+        return "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring."
 
-# Kesh uchun
-result_cache = {}
-CACHE_EXPIRY = 300  # 5 daqiqa
+    finally:
+        driver_pool.return_driver(driver)
 
 @data_router.message(MainState2.natija, F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message, state: FSMContext):
@@ -239,10 +237,9 @@ async def handle_id_query(msg: Message):
     loading_msg = await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
     
     try:
-        # Asinxron tarzda ma'lumot olish
+        # Asinxron tarzda ma'lumot olish (sinxron funksiyani thread'da ishga tushirish)
         loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(executor, 
-                                           lambda: asyncio.run(get_abiturient_info_by_id(abt_id)))
+        result = await loop.run_in_executor(executor, get_abiturient_info_by_id, abt_id)
         
         # Loading message'ni o'chirish
         try:
