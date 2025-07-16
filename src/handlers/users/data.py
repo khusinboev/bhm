@@ -195,7 +195,7 @@ async def handle_id_query(msg: Message):
     asyncio.create_task(process_and_reply())
 
 
-@data_router.message(MainState.natija, F.chat.type == ChatType.PRIVATE)
+@data_router.message(MainState2.natija, F.chat.type == ChatType.PRIVATE)
 async def handle_id_query2(msg: Message):
     from_chat_id = "@Second_Polat"
     message_id = 733
