@@ -88,15 +88,16 @@ def get_abiturient_info_by_id(user_id: str):
         )
 
         fanlar = []
-
+        num = 0
         for card in card_divs[:6]:
+            num += 1
             # card ning ichki HTML'ni olish
             html = card.get_attribute("innerHTML")
             soup = BeautifulSoup(html, "html.parser")
 
             bolds = soup.find_all("b")
             print(bolds)
-            if len(bolds) >= 2:
+            if num >= 3:
                 correct = bolds[0].text.strip()
                 score = bolds[1].text.strip()
                 fanlar.append((correct, score))
