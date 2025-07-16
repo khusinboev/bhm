@@ -127,7 +127,7 @@ async def show_orders(message: Message):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
     if not check_status:
-        await message.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
+        await message.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:", parse_mode='html',
                              reply_markup=await CheckData.channels_btn(channels))
         return
 
@@ -136,7 +136,7 @@ async def show_orders(message: Message):
     records = sql.fetchall()
 
     if not records:
-        await message.answer("❗ Sizda hali hech qanday buyurtma mavjud emas.\n\nNatijangizni buyurtma qilish uchun '<b>Abituriyent ruxsatnomasi</b>'ni <b>PDF</b> faylini yuboring")
+        await message.answer("❗ Sizda hali hech qanday buyurtma mavjud emas.\n\nNatijangizni buyurtma qilish uchun '<b>Abituriyent ruxsatnomasi</b>'ni <b>PDF</b> faylini yuboring", parse_mode="html")
         return
 
     chunks = []
