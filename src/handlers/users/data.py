@@ -51,10 +51,15 @@ def get_abiturient_info_by_id(user_id: str):
         # Batafsil tugmasi
         detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_btn.click()
-        time.sleep(2)
 
-        # FIO
-        fio = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "h2.text-center.text-uppercase"))).text.strip()
+        # ❗ Sahifa to‘liq yuklanguncha kutamiz
+        wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+
+        # 🔁 Yangi sahifa yuklangach <h2> elementini kutamiz
+        fio = wait.until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, "h2.text-center.text-uppercase"))
+        ).text.strip()
+
 
         # Fanlar (Top 6ta)
         fanlar_divs = wait.until(EC.presence_of_all_elements_located(
