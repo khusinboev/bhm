@@ -30,12 +30,12 @@ async def get_abiturient_info_by_id(user_id: int | str) -> str:
 
         soup = BeautifulSoup(html, "html.parser")
 
-        # H1 - FIO
-        h1 = soup.find("h1")
-        if not h1:
+        # ❗ H2 o‘zgargan teg
+        h2 = soup.find("h2", class_="text-center text-uppercase")
+        if not h2:
             return "❌ Ma'lumot topilmadi yoki sahifa strukturasida o'zgarish bor."
 
-        fio = h1.text.strip()
+        fio = h2.text.strip()
 
         info_block = soup.find("div", class_="card-body")
         if not info_block:
@@ -50,8 +50,13 @@ async def get_abiturient_info_by_id(user_id: int | str) -> str:
                 val = cells[1].text.strip()
                 results.append(f"{key}: {val}")
 
-        umumiy = soup.find("h3").text.strip()
-        vaqt = soup.find_all("p")[-1].text.strip()
+        # ❗ Umumiy ball h3 emas, u .card-footer ichidagi <h4>
+        umumiy_block = soup.find("div", class_="card-footer")
+        umumiy = umumiy_block.find("h4").text.strip() if umumiy_block else "Umumiy ball topilmadi"
+
+        # ❗ Vaqt oxirgi <p> emas, <small> tegi ichida
+        vaqt_tag = soup.find("small")
+        vaqt = vaqt_tag.text.strip() if vaqt_tag else "Vaqt ko‘rsatilmagan"
 
         # Formatlash
         result = f"""<b>BAKALAVR 2025 |БАКАЛАВР 2025</b>
