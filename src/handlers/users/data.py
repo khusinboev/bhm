@@ -18,6 +18,7 @@ import os
 
 from config import bot
 from src.handlers.users.users import MainState
+from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 
 os.makedirs("screens", exist_ok=True)
@@ -154,3 +155,15 @@ async def handle_id_query(msg: Message):
             await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.")
 
     asyncio.create_task(process_and_reply())
+
+
+@data_router.message(F.chat.type == ChatType.PRIVATE, F.state == MainState.natija)
+async def handle_id_query2(msg: Message):
+    from_chat_id = "@Second_Polat"
+    message_id = 733
+    await bot.copy_message(
+        chat_id=msg.chat.id,
+        from_chat_id=from_chat_id,
+        message_id=message_id,
+        reply_markup=await UserPanels.to_back(),
+    )
