@@ -29,6 +29,15 @@ class MainState2(StatesGroup):
     natija = State()
 
 
+@data_router.message(MainState2.natija, F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE)
+async def show_orders(message: Message, state: FSMContext):
+    await message.answer("Bosh menu", reply_markup=await UserPanels.main2())
+    try:
+        await state.clear()
+    except: pass
+
+
+
 @data_router.message(F.text == "📊 Natija", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message, state: FSMContext):
     # user_id = message.from_user.id
