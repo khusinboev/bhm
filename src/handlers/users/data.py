@@ -37,8 +37,10 @@ async def show_orders(message: Message, state: FSMContext):
     except: pass
 
 
+
 @data_router.message(F.text == "📊 Natija", F.chat.type == ChatType.PRIVATE)
 async def show_orders(message: Message, state: FSMContext):
+
     from_chat_id = "@Second_Polat"
     message_id = 733
     await bot.copy_message(
@@ -50,15 +52,9 @@ async def show_orders(message: Message, state: FSMContext):
     await state.set_state(MainState2.natija)
 
 
-# ThreadPoolExecutor worker sonini cheklash
-executor = ThreadPoolExecutor(max_workers=3)
+executor = ThreadPoolExecutor()
 
-# Sodda cache - faqat oxirgi 100 ta natija uchun
-simple_cache = {}
-MAX_CACHE_SIZE = 100
-
-def get_chrome_options():
-    """Chrome options-ni alohida funksiyaga ajratish"""
+def get_abiturient_info_by_id(user_id: str):
     options = Options()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
@@ -67,19 +63,11 @@ def get_chrome_options():
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--disable-extensions")
     options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-logging")  # Log-larni kamaytirish
     options.add_argument(
         "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
     )
-    return options
 
-def get_abiturient_info_by_id(user_id: str):
-    # Sodda cache tekshirish
-    cache_key = f"{user_id}_{int(time.time() // 300)}"  # 5 daqiqa cache
-    if cache_key in simple_cache:
-        return simple_cache[cache_key]
-    
-    driver = webdriver.Chrome(options=get_chrome_options())
+    driver = webdriver.Chrome(options=options)
     try:
         print("🌐 Saytga kirilmoqda...")
         driver.get("https://mandat.uzbmb.uz/")
@@ -97,7 +85,7 @@ def get_abiturient_info_by_id(user_id: str):
         time.sleep(1)
         detail_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "a.btn.btn-info")))
         detail_btn.click()
-        print("📄 Batafsil sahifaga o'tildi")
+        print("📄 Batafsil sahifaga o‘tildi")
 
         # Sahifa yuklanishini kutish
         time.sleep(1)
@@ -115,7 +103,7 @@ def get_abiturient_info_by_id(user_id: str):
         fanlar = []
         for header in card_headers:
             text = header.get_text(strip=True)
-            if "To'g'ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
+            if "To’g’ri javoblar soni" in text or "To'g'ri javoblar soni" in text:
                 bolds = header.find_all("b")
                 if len(bolds) == 2:
                     correct = bolds[0].text.strip()
@@ -124,7 +112,8 @@ def get_abiturient_info_by_id(user_id: str):
                 if len(fanlar) >= 3:
                     break  # faqat 3 ta blok yetarli
 
-        # Umumiy ball olish
+
+# Umumiy ball olish
         umumiy_ball = "?"
         umumiy_div = soup.find("div", class_="card-header card-div text-center", string=lambda t: t and "Umumiy ball" in t)
         if not umumiy_div:
@@ -144,15 +133,15 @@ _______
 🆔:  <b>{user_id}</b>
 _______
 1️⃣ Majburiy fanlar 
-To'g'ri javoblar soni: {fanlar[0][0]} ta  
+To‘g‘ri javoblar soni: {fanlar[0][0]} ta  
 Ball: {fanlar[0][1]}
 
 2️⃣ 1-mutaxassislik fani 
-To'g'ri javoblar soni: {fanlar[1][0]} ta  
+To‘g‘ri javoblar soni: {fanlar[1][0]} ta  
 Ball: {fanlar[1][1]}
 
 3️⃣ 2-mutaxassislik fani 
-To'g'ri javoblar soni: {fanlar[2][0]} ta  
+To‘g‘ri javoblar soni: {fanlar[2][0]} ta  
 Ball: {fanlar[2][1]}
 _______
 ✅ <b>Umumiy ball:</b> {umumiy_ball}
@@ -161,19 +150,11 @@ _______
 
 <b>✅ Ma'lumotlar @mandat_uzbmbbot tomonidan olindi</b>
 """
-        
-        # Cache-ga saqlash
-        if len(simple_cache) >= MAX_CACHE_SIZE:
-            # Eng eski elementni o'chirish
-            oldest_key = min(simple_cache.keys())
-            del simple_cache[oldest_key]
-        simple_cache[cache_key] = matn
-        
         return matn
 
     except Exception as e:
         logging.exception("❌ Xatolik:")
-        return "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring."
+        return "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring."
 
     finally:
         driver.quit()
@@ -184,37 +165,23 @@ async def handle_id_query(msg: Message):
     user_id = msg.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
     if not check_status:
-        await msg.answer("❗ Iltimos, quyidagi kanallarga a'zo bo'ling:",
+        await msg.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
                              reply_markup=await CheckData.channels_btn(channels))
         return
-    
     abt_id = msg.text.strip()
-    
-    # Loading message qo'shish
-    loading_msg = await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
+    await msg.answer("🔍 Ma'lumotlar olinmoqda, iltimos kuting...")
 
     async def process_and_reply():
         try:
             loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(executor, get_abiturient_info_by_id, abt_id)
-            
-            # Loading message-ni o'chirish
-            try:
-                await loading_msg.delete()
-            except:
-                pass
-            
             if result.startswith("❌"):
                 await msg.answer(f"<b>ID: {abt_id} ma'lumotlari topilmadi. Hali natijangiz chiqmagan ko'rinadi. Siz hozirda natijaga buyurtma berishingiz mumkin .</b>", parse_mode="HTML")
             else:
                 await msg.answer(result, parse_mode="HTML")
         except Exception as e:
             logging.exception("❌ Ichki xatolik:")
-            try:
-                await loading_msg.delete()
-            except:
-                pass
-            await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.")
+            await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring.")
 
     asyncio.create_task(process_and_reply())
 
