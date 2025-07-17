@@ -41,23 +41,19 @@ async def check(call: CallbackQuery):
     try:
         check_status, channels = await CheckData.check_member(bot, user_id)
         if check_status:
-            await call.message.delete()
             await bot.send_message(chat_id=user_id,
                                    text="<b>Botimizdan foydalanish uchun quyidagi tugmalardan birini tanlang</b>",
                                    reply_markup=await UserPanels.main2(),
                                    parse_mode="html")
             try:
+                await call.message.delete()
                 await call.answer()
             except:
                 pass
         else:
             try:
                 await call.answer(show_alert=True, text="Botimizdan foydalanish uchun barcha kanallarga a'zo bo'ling")
-            except:
-                try:
-                    await call.answer()
-                except:
-                    pass
+            except: pass
     except Exception as e:
         await bot.forward_message(chat_id=ADMIN_ID[0], from_chat_id=call.message.chat.id, message_id=call.message.message_id)
         await bot.send_message(chat_id=ADMIN_ID[0], text=f"Error in check:\n{e}")
