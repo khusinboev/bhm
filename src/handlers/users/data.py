@@ -59,9 +59,31 @@ async def async_parse_with_playwright(abt_id: str) -> str:
         await page.wait_for_selector('#AbiturID', timeout=15000)
         await page.fill('#AbiturID', abt_id)
         await page.click('#SearchBtn1')
-        await page.wait_for_selector('a.btn.btn-info', timeout=15000)
-        await page.click('a.btn.btn-info')
+        await page.wait_for_selector('table.table tbody tr', timeout=15000)
+
+        # Find the row with the matching abt_id
+        rows = await page.query_selector_all('table.table tbody tr')
+        matched_href = None
+        for row in rows:
+            cells = await row.query_selector_all('td')
+            if cells:
+                cell_text = await cells[0].inner_text()
+                if cell_text.strip() == abt_id:
+                    link = await row.query_selector('a.btn.btn-info')
+                    if link:
+                        href = await link.get_attribute('href')
+                        matched_href = href
+                    break
+
+        if not matched_href:
+            return "❌ ID topilmadi. Iltimos, ID raqamini tekshiring."
+
+        # Go to the detailed page
+        full_url = f"https://mandat.uzbmb.uz{matched_href}"
+        await page.goto(full_url, timeout=15000)
         await page.wait_for_selector('xpath=//div[contains(text(),"F.I.SH")]/b', timeout=15000)
+
+        # Continue as before...
         fio = await page.eval_on_selector('xpath=//div[contains(text(),"F.I.SH")]/b', 'el => el.textContent')
         fio = fio.strip()
         content = await page.content()
@@ -78,6 +100,7 @@ async def async_parse_with_playwright(abt_id: str) -> str:
                     fanlar.append((correct, score))
                 if len(fanlar) >= 3:
                     break
+
         umumiy_ball = "?"
         umumiy_div = soup.find("div", class_="card-header card-div text-center",
                                string=lambda t: t and "Umumiy ball" in t)
@@ -87,6 +110,7 @@ async def async_parse_with_playwright(abt_id: str) -> str:
             umumiy_b = umumiy_div.find("b")
             if umumiy_b:
                 umumiy_ball = umumiy_b.text.strip()
+
         vaqt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         matn = f"""<b>BAKALAVR 2025</b>
 _______
@@ -114,7 +138,7 @@ _______
         return matn
     except Exception as e:
         logging.exception(f"❌ Xatolik ID {abt_id} uchun:")
-        return "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring."
+        return "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring."
     finally:
         await context.close()
 
