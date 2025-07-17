@@ -83,6 +83,7 @@ driver_pool = DriverPool()
 executor = ThreadPoolExecutor(max_workers=10)
 semaphore = asyncio.Semaphore(10)
 
+
 # --- FSM --- #
 class MainState2(StatesGroup):
     natija = State()
@@ -188,6 +189,10 @@ async def get_abiturient_info_async(user_id: str) -> str:
     cached = await get_from_cache(user_id)
     if cached:
         return cached
+
+    # 🟡 Bu yerda yuklanganlikni tekshiramiz
+    if semaphore._value <= 1:  # deyarli to‘lib qolgan
+        return "🚨 Hozirda juda ko‘p so‘rovlar bo‘layapti.\nIltimos, 30 soniyadan keyin qayta urinib ko‘ring."
 
     async with semaphore:
         loop = asyncio.get_event_loop()
