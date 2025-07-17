@@ -16,9 +16,12 @@ from src.handlers.users.users import user_router
 from src.middlewares.middleware import RegisterUserMiddleware
 
 
+async def on_startup() -> None:
+    await create_all_base()
+
 
 async def main():
-    
+    await on_startup()
     logging.basicConfig(level=logging.INFO)
 
     dp.update.middleware(RegisterUserMiddleware())
