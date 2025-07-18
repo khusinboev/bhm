@@ -64,7 +64,8 @@ async def async_parse_with_playwright(abt_id: str) -> str:
         # Find the row with the matching abt_id
         rows = await page.query_selector_all('table.table tbody tr')
         matched_href = None
-        for row in rows:
+        matched_index_in_page = None
+        for index, row in enumerate(rows, start=1):
             cells = await row.query_selector_all('td')
             if cells:
                 cell_text = await cells[0].inner_text()
@@ -73,10 +74,24 @@ async def async_parse_with_playwright(abt_id: str) -> str:
                     if link:
                         href = await link.get_attribute('href')
                         matched_href = href
+                        matched_index_in_page = index  # 1–10
                     break
 
         if not matched_href:
             return "❌ ID topilmadi. Iltimos, ID raqamini tekshiring."
+        # Get the page number from paginator form
+        page_number = 1  # default
+        try:
+            page_form = await page.query_selector('li.page-item.active form')
+            if page_form:
+                page_number_input = await page_form.query_selector('input[name="pageNumber"]')
+                if page_number_input:
+                    page_number_str = await page_number_input.get_attribute('value')
+                    if page_number_str and page_number_str.isdigit():
+                        page_number = int(page_number_str)
+        except Exception as e:
+            logging.warning("⚠️ Sahifa raqamini aniqlab bo'lmadi.")
+        umumiy_orn = (page_number - 1) * 10 + matched_index_in_page
 
         # Go to the detailed page
         full_url = f"https://mandat.uzbmb.uz{matched_href}"
@@ -116,6 +131,8 @@ async def async_parse_with_playwright(abt_id: str) -> str:
 _______
 <b>FIO</b>:  {fio}
 🆔:  <b>{abt_id}</b>
+
+<u>📊 Mandat saytidagi o'rningiz: </u>{umumiy_orn}
 _______
 1️⃣ Majburiy fanlar 
 To'g'ri javoblar soni: {fanlar[0][0]} ta  
