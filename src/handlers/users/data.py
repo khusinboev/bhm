@@ -149,7 +149,6 @@ _______
 ✅ <b>Umumiy ball:</b> {umumiy_ball}
 ⏰ {vaqt}
 
-
 <b>✅ Ma'lumotlar @mandat_uzbmbbot tomonidan olindi</b>
 """
         return matn
