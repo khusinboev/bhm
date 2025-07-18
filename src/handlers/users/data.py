@@ -132,14 +132,15 @@ async def async_parse_with_playwright(abt_id: str) -> str:
                     break
 
         umumiy_ball = "?"
-        umumiy_div = soup.find("div", class_="card-header card-div text-center",
-                               string=lambda t: t and "Umumiy ball" in t)
-        if not umumiy_div:
-            umumiy_div = soup.find("div", class_="bg-success")
-        if umumiy_div:
-            umumiy_b = umumiy_div.find("b")
-            if umumiy_b:
-                umumiy_ball = umumiy_b.text.strip()
+        umumiy_divs = soup.select(
+            "div.col-sm-3 > div.card.card-outline.bg-success.text-white > div.card-header.card-div.text-center")
+
+        for div in umumiy_divs:
+            if "Umumiy ball" in div.get_text():
+                b_tag = div.find("b")
+                if b_tag:
+                    umumiy_ball = b_tag.text.strip()
+                    break
 
         vaqt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         matn = f"""<b>BAKALAVR 2025</b>
