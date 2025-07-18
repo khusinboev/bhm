@@ -103,6 +103,21 @@ async def async_parse_with_playwright(abt_id: str) -> str:
         fio = fio.strip()
         content = await page.content()
         soup = BeautifulSoup(content, "html.parser")
+
+        # Correct/wrong answer parsing
+        answers_section = soup.select("li.list-group-item")
+        answers = []
+        for li in answers_section:
+            text = li.get_text(strip=True)  # e.g., "1. A"
+            symbol = "✅" if "list-group-item-success" in li.get("class", []) else "❌"
+            answers.append(f"{text.lower()}{symbol}")
+        # Format into rows of 5 answers
+        formatted_rows = []
+        for i in range(0, len(answers), 5):
+            row = "   ".join(answers[i:i + 5])
+            formatted_rows.append(row)
+        answers_block = "\n".join(formatted_rows)
+
         card_headers = soup.select("div.card-header.card-div.text-center")
         fanlar = []
         for header in card_headers:
@@ -148,6 +163,9 @@ Ball: {fanlar[2][1]}
 _______
 ✅ <b>Umumiy ball:</b> {umumiy_ball}
 ⏰ {vaqt}
+_______
+📝 <b>Javoblar varaqasi bo‘yicha</b>
+<blockquote>{answers_block}</blockquote>
 
 <b>✅ Ma'lumotlar @mandat_uzbmbbot tomonidan olindi</b>
 """
