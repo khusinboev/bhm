@@ -173,7 +173,7 @@ _______
         return matn
     except Exception as e:
         logging.exception(f"❌ Xatolik ID {abt_id} uchun:")
-        return "❌ Xatolik yuz berdi. Iltimos, keyinroq urinib ko‘ring."
+        return "❌ Sizning ballingiz hali chiqmagan bo'lishi mumkin."
     finally:
         await context.close()
 
