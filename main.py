@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+from aiogram.methods import GetUpdates
 
 from config import BOT_TOKEN, dp, bot
 from src.db.init_db import create_all_base
@@ -41,6 +42,7 @@ async def main():
     dp.include_router(channel_router)
     dp.include_router(other_router)
 
+    await bot(GetUpdates(offset=-1, timeout=0))
     await dp.start_polling(bot)
 
 
