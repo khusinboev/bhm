@@ -221,4 +221,4 @@ async def handle_id_query(msg: Message):
     except Exception as e:
         logging.exception("❌ Ichki xatolik:")
         await loading_msg.delete()
-        await msg.answer("❌ Ichki xatolik yuz berdi. Iltimos, keyinroq urinib ko'ring.")
+        await msg.answer("🚨 Hozirda juda ko‘p so‘rovlar bo‘layapti.\nIltimos, 30 soniyadan keyin qayta urinib ko‘ring.")
