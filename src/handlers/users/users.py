@@ -167,13 +167,13 @@ async def show_orders(message: Message):
         )
         return
 
-    # So‘nggi 10 ta buyurtma
+    # So‘nggi 6 ta buyurtma
     sql.execute("""
-        SELECT abt_id, abt_name, id
+        SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
         FROM bhm
         WHERE user_id = %s
         ORDER BY id DESC
-        LIMIT 10
+        LIMIT 6
     """, (user_id,))
     records = sql.fetchall()
 
@@ -185,44 +185,20 @@ async def show_orders(message: Message):
         )
         return
 
-    chunks = []
-    current_chunk = "<b>👇 Sizning so‘nggi 10 ta buyurtmangiz:</b>\n\n"
+    total_orders = len(records)
+    text_header = f"<b>👇 Sizning so‘nggi {total_orders} ta buyurtmangiz:</b>\n\n"
 
-    for row in records:
-        abt_id, fio, order_num = row
-
-        # Ma'lumotlarni yangidan olish
-        async with semaphore:
-            data = await parse_mandat(abt_id)
-
-        if not data:
-            umumiy_ball = "?"
-            umumiy_orn = "?"
-        else:
-            umumiy_ball = data["umumiy_ball"]
-            umumiy_orn = data["orn"]
-
-        order_text = (
-            f"✅ Tabriklaymiz: <b>{abt_id}</b> ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
-            f"<b>📑 Buyurtma tartib raqami:</b> {order_num}\n"
+    body = ""
+    for abt_id, fio, umumiy_ball, umumiy_orn, order_num in records:
+        body += (
+            f"✅ <b>{abt_id}</b> ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n"
+            f"📑 Buyurtma tartib raqami: {order_num}\n"
             f"F.I.SH: {fio}\n"
             f"Umumiy ball: {umumiy_ball}\n"
             f"Mandat saytidagi o‘rningiz: {umumiy_orn}\n\n"
-            f"<i>Yakuniy mandat natijalari e'lon qilinishi bilan ushbu bot avtomatik ravishda natijangizni yuboradi!</i>\n\n"
-            f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>\n\n"
         )
 
-        if len(current_chunk) + len(order_text) > 3500:
-            chunks.append(current_chunk)
-            current_chunk = ""
-
-        current_chunk += order_text
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    for chunk in chunks:
-        await message.answer(chunk, parse_mode="html")
+    await message.answer(text_header + body, parse_mode="html")
 
 
 @user_router.message(MainState.natija2, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
@@ -230,51 +206,64 @@ async def handle_id(message: Message, state: FSMContext):
     user_id = message.from_user.id
     check_status, channels = await CheckData.check_member(bot, user_id)
     if not check_status:
-        await message.answer("❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
-                             reply_markup=await CheckData.channels_btn(channels))
+        await message.answer(
+            "❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
+            reply_markup=await CheckData.channels_btn(channels)
+        )
         return
 
     abt_id = message.text.strip()
-    loading = await message.answer("🔍 Ma'lumotlar olinmoqda, kuting...")
 
-    async with semaphore:
-        data = await parse_mandat(abt_id)
+    # Avval bazadan qidiramiz
+    sql.execute("""
+        SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
+        FROM bhm
+        WHERE user_id = %s AND abt_id = %s
+    """, (user_id, abt_id))
+    record = sql.fetchone()
 
-    await loading.delete()
+    if record:
+        # Agar bazada mavjud bo‘lsa
+        abt_id, fio, umumiy_ball, umumiy_orn, order_number = record
+    else:
+        # Agar yo‘q bo‘lsa sayt orqali olish
+        loading = await message.answer("🔍 Ma'lumotlar olinmoqda, kuting...")
+        async with semaphore:
+            data = await parse_mandat(abt_id)
+        await loading.delete()
 
-    if not data:
-        await message.answer("❌ ID topilmadi yoki ma'lumot olishda xatolik yuz berdi.")
-        return
+        if not data:
+            await message.answer("❌ ID topilmadi yoki ma'lumot olishda xatolik yuz berdi.")
+            return
 
-    # Bazaga yozish
-    try:
+        fio = data["fio"]
+        umumiy_ball = data["umumiy_ball"]
+        umumiy_orn = data["orn"]
+
+        # Bazaga yozish (abt_id unique bo‘lishi uchun constraint qo‘yilgan bo‘lishi kerak)
         sql.execute("""
-            INSERT INTO bhm (user_id, abt_id, abt_name, abt_seriya, abt_pinfl, abt_date)
-            VALUES (%s, %s, %s, '', '', NOW())
-            ON CONFLICT (user_id, abt_id) DO NOTHING
+            INSERT INTO bhm (user_id, abt_id, abt_name, umumiy_ball, umumiy_orn, abt_seriya, abt_pinfl, abt_date)
+            VALUES (%s, %s, %s, %s, %s, '', '', NOW())
+            ON CONFLICT (abt_id) DO NOTHING
             RETURNING id
-        """, (user_id, data["abt_id"], data["fio"]))
+        """, (user_id, abt_id, fio, umumiy_ball, umumiy_orn))
         inserted = sql.fetchone()
         db.commit()
 
         if inserted:
             order_number = inserted[0]
         else:
-            sql.execute("SELECT id FROM bhm WHERE user_id = %s AND abt_id = %s", (user_id, abt_id))
+            sql.execute("SELECT id FROM bhm WHERE abt_id = %s", (abt_id,))
             order_number = sql.fetchone()[0]
-    except Exception as e:
-        await message.answer(f"❌ Bazaga yozishda xatolik: {e}")
-        return
 
-    # Foydalanuvchiga xabar
+    # Foydalanuvchiga javob
     text = (
-        f"<b>✅ Tabriklaymiz:</b> {data['abt_id']} ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
-        f"<b>📑 Buyurtma tartib raqami:</b> {order_number}\n\n"
-        f"🆔 Abituriyent ID raqami: <b>{data['abt_id']}</b>"
-        f"🪪 F.I.SH: {data['fio']}\n"
-        f"🎓 Umumiy ball: {data['umumiy_ball']}\n"
-        f"📊 Mandat saytidagi o‘rningiz: {data['orn']}\n\n"
-        f"<i><b>Eslatma: YAKUNIY MANDAT NATIJALARI</b> e'lon qilinishi bilan ushbu bot avtomatik ravishda natijangizni yuboradi!</i>\n\n"
+        f"<b>✅ Tabriklaymiz:</b> {abt_id} ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
+        f"<b>📑 Buyurtma tartib raqami:</b> {order_number}\n"
+        f"🪪 F.I.SH: {fio}\n"
+        f"🎓 Umumiy ball: {umumiy_ball}\n"
+        f"📊 Mandat saytidagi o‘rningiz: {umumiy_orn}\n\n"
+        f"<i><b>Eslatma:</b> YAKUNIY MANDAT NATIJALARI e'lon qilinishi bilan ushbu bot avtomatik ravishda natijangizni yuboradi!</i>\n\n"
         f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>"
     )
 
