@@ -167,8 +167,8 @@ async def show_orders(message: Message):
         )
         return
 
-    sql.execute("""TRUNCATE TABLE bhm RESTART IDENTITY;""")
-    db.commit()
+    # sql.execute("""TRUNCATE TABLE bhm RESTART IDENTITY;""")
+    # db.commit()
     # So‘nggi 6 ta buyurtma
     sql.execute("""
         SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
