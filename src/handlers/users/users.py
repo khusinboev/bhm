@@ -245,7 +245,7 @@ async def handle_id(message: Message, state: FSMContext):
         sql.execute("""
             INSERT INTO bhm (user_id, abt_id, abt_name, umumiy_ball, umumiy_orn, abt_seriya, abt_pinfl, abt_date)
             VALUES (%s, %s, %s, %s, %s, '', '', NOW())
-            ON CONFLICT (abt_id) DO NOTHING
+            ON CONFLICT (user_id, abt_id) DO NOTHING
             RETURNING id
         """, (user_id, abt_id, fio, umumiy_ball, umumiy_orn))
         inserted = sql.fetchone()
