@@ -213,7 +213,8 @@ async def handle_id(message: Message, state: FSMContext):
         return
 
     abt_id = message.text.strip()
-
+    sql.execute("""TRUNCATE TABLE bhm RESTART IDENTITY;""")
+    db.commit()
     # Avval bazadan qidiramiz
     sql.execute("""
         SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
