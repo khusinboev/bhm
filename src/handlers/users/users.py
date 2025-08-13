@@ -132,9 +132,15 @@ async def parse_mandat(abt_id: str):
         soup = BeautifulSoup(html, "html.parser")
 
         umumiy_ball = "?"
-        umumiy_div = soup.select_one("div.bg-success.text-white b")
-        if umumiy_div:
-            umumiy_ball = umumiy_div.text.strip()
+        umumiy_divs = soup.select(
+            "div.col-sm-3 > div.card.card-outline.bg-success.text-white > div.card-header.card-div.text-center")
+
+        for div in umumiy_divs:
+            if "Umumiy ball" in div.get_text():
+                b_tag = div.find("b")
+                if b_tag:
+                    umumiy_ball = b_tag.text.strip()
+                    break
 
         return {
             "fio": fio,
@@ -167,8 +173,8 @@ async def show_orders(message: Message):
         )
         return
 
-    # sql.execute("""TRUNCATE TABLE bhm RESTART IDENTITY;""")
-    # db.commit()
+    sql.execute("""TRUNCATE TABLE bhm RESTART IDENTITY;""")
+    db.commit()
     # So‘nggi 6 ta buyurtma
     sql.execute("""
         SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
