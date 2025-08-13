@@ -41,6 +41,8 @@ async def create_all_base():
         abt_seriya VARCHAR(20),
         abt_pinfl VARCHAR(20),
         abt_date DATE,
+        umumiy_ball NUMERIC,
+        umumiy_orn INT,
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(user_id, abt_id)
     );""")
