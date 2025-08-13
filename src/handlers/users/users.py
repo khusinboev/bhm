@@ -155,6 +155,65 @@ async def ask_id(message: Message, state: FSMContext):
     await state.set_state(MainState.natija2)
 
 
+@user_router.message(F.text == "📁 Mening buyurtmalarim", F.chat.type == ChatType.PRIVATE)
+async def show_orders(message: Message):
+    user_id = message.from_user.id
+    check_status, channels = await CheckData.check_member(bot, user_id)
+    if not check_status:
+        await message.answer(
+            "❗ Iltimos, quyidagi kanallarga a’zo bo‘ling:",
+            parse_mode='html',
+            reply_markup=await CheckData.channels_btn(channels)
+        )
+        return
+
+    # So'nggi 10 ta buyurtma
+    sql.execute("""
+        SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
+        FROM bhm
+        WHERE user_id = %s
+        ORDER BY id DESC
+        LIMIT 10
+    """, (user_id,))
+    records = sql.fetchall()
+
+    if not records:
+        await message.answer(
+            "❗ Sizda hali hech qanday buyurtma mavjud emas.\n\n"
+            "Natijangizni buyurtma qilish uchun '<b>ID raqamingiz</b>'ni yuboring.",
+            parse_mode="html"
+        )
+        return
+
+    chunks = []
+    current_chunk = "<b>👇 Sizning so‘nggi 10 ta buyurtmangiz:</b>\n\n"
+
+    for row in records:
+        abt_id, fio, umumiy_ball, umumiy_orn, order_num = row
+        order_text = (
+            f"✅ Tabriklaymiz: <b>{abt_id}</b> ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
+            f"<b>📑 Buyurtma tartib raqami:</b> {order_num}\n"
+            f"F.I.SH: {fio}\n"
+            f"Umumiy ball: {umumiy_ball}\n"
+            f"Mandat saytidagi o‘rningiz: {umumiy_orn}\n\n"
+            f"<i>Yakuniy mandat natijalari e'lon qilinishi bilan ushbu bot avtomatik ravishda natijangizni yuboradi!</i>\n\n"
+            f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>\n\n"
+        )
+
+        # Xabar uzunligini nazorat qilish
+        if len(current_chunk) + len(order_text) > 3500:
+            chunks.append(current_chunk)
+            current_chunk = ""
+
+        current_chunk += order_text
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    for chunk in chunks:
+        await message.answer(chunk, parse_mode="html")
+
+
 @user_router.message(MainState.natija2, F.text.regexp(r"^\d{6,8}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id(message: Message, state: FSMContext):
     user_id = message.from_user.id
@@ -198,12 +257,13 @@ async def handle_id(message: Message, state: FSMContext):
 
     # Foydalanuvchiga xabar
     text = (
-        f"✅ Tabriklaymiz: <b>{data['abt_id']}</b> ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
-        f"<b>📑 Buyurtma tartib raqami:</b> {order_number}\n"
-        f"F.I.SH: {data['fio']}\n"
-        f"Umumiy ball: {data['umumiy_ball']}\n"
-        f"Mandat saytidagi o‘rningiz: {data['orn']}\n\n"
-        f"<i>Yakuniy mandat natijalari e'lon qilinishi bilan ushbu bot avtomatik ravishda natijangizni yuboradi!</i>\n\n"
+        f"<b>✅ Tabriklaymiz:</b> {data['abt_id']} ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
+        f"<b>📑 Buyurtma tartib raqami:</b> {order_number}\n\n"
+        f"🆔 Abituriyent ID raqami: <b>{data['abt_id']}</b>"
+        f"🪪 F.I.SH: {data['fio']}\n"
+        f"🎓 Umumiy ball: {data['umumiy_ball']}\n"
+        f"📊 Mandat saytidagi o‘rningiz: {data['orn']}\n\n"
+        f"<i><b>Eslatma: YAKUNIY MANDAT NATIJALARI</b> e'lon qilinishi bilan ushbu bot avtomatik ravishda natijangizni yuboradi!</i>\n\n"
         f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>"
     )
 
