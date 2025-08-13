@@ -166,14 +166,7 @@ async def show_orders(message: Message):
             reply_markup=await CheckData.channels_btn(channels)
         )
         return
-    sql.execute("""
-    ALTER TABLE bhm
-ADD COLUMN umumiy_ball NUMERIC;
-ALTER TABLE bhm
-ADD COLUMN umumiy_orn INT;
-        TRUNCATE TABLE bhm RESTART IDENTITY;
-                """)
-    db.commit()
+
     # So‘nggi 6 ta buyurtma
     sql.execute("""
         SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
@@ -245,7 +238,7 @@ async def handle_id(message: Message, state: FSMContext):
 
         fio = data["fio"]
         umumiy_ball = data["umumiy_ball"]
-        umumiy_orn = data["orn"]
+        umumiy_orn = str(int(data["orn"])+100)
 
         # Bazaga yozish (abt_id unique bo‘lishi uchun constraint qo‘yilgan bo‘lishi kerak)
         sql.execute("""
