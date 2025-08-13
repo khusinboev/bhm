@@ -167,9 +167,9 @@ async def show_orders(message: Message):
         )
         return
 
-    # So'nggi 10 ta buyurtma
+    # So‘nggi 10 ta buyurtma
     sql.execute("""
-        SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
+        SELECT abt_id, abt_name, id
         FROM bhm
         WHERE user_id = %s
         ORDER BY id DESC
@@ -189,7 +189,19 @@ async def show_orders(message: Message):
     current_chunk = "<b>👇 Sizning so‘nggi 10 ta buyurtmangiz:</b>\n\n"
 
     for row in records:
-        abt_id, fio, umumiy_ball, umumiy_orn, order_num = row
+        abt_id, fio, order_num = row
+
+        # Ma'lumotlarni yangidan olish
+        async with semaphore:
+            data = await parse_mandat(abt_id)
+
+        if not data:
+            umumiy_ball = "?"
+            umumiy_orn = "?"
+        else:
+            umumiy_ball = data["umumiy_ball"]
+            umumiy_orn = data["orn"]
+
         order_text = (
             f"✅ Tabriklaymiz: <b>{abt_id}</b> ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
             f"<b>📑 Buyurtma tartib raqami:</b> {order_num}\n"
@@ -200,7 +212,6 @@ async def show_orders(message: Message):
             f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>\n\n"
         )
 
-        # Xabar uzunligini nazorat qilish
         if len(current_chunk) + len(order_text) > 3500:
             chunks.append(current_chunk)
             current_chunk = ""
