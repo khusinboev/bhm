@@ -193,7 +193,7 @@ async def show_orders(message: Message):
     body = ""
     for abt_id, fio, umumiy_ball, umumiy_orn, order_num in records:
         body += (
-            f"✅ <b>{abt_id}</b> ID raqamli mandat narijasiga buyurtma qabul qilindi\n"
+            f"✅ <b>{abt_id}</b> ID raqamli mandat natijasiga buyurtma qabul qilindi\n"
             f"📑 Buyurtma tartib raqami: {int(order_num)+100}\n"
             f"F.I.SH: {fio}\n"
             f"Umumiy ball: {umumiy_ball}\n"
@@ -259,7 +259,7 @@ async def handle_id(message: Message, state: FSMContext):
 
     # Foydalanuvchiga javob
     text = (
-        f"<b>✅ Tabriklaymiz:</b> {abt_id} ID raqamli mandat narijasiga buyurtma qabul qilindi\n\n"
+        f"<b>✅ Tabriklaymiz:</b> {abt_id} ID raqamli mandat natijasiga buyurtma qabul qilindi\n\n"
         f"<b>📑 Buyurtma tartib raqami:</b> {int(order_number)+100}\n"
         f"🪪 F.I.SH: {fio}\n"
         f"🎓 Umumiy ball: {umumiy_ball}\n"
