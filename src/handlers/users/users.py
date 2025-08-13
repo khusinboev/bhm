@@ -167,6 +167,8 @@ async def show_orders(message: Message):
         )
         return
 
+    sql.execute("""TRUNCATE TABLE bhm RESTART IDENTITY;""")
+    db.commit()
     # So‘nggi 6 ta buyurtma
     sql.execute("""
         SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
@@ -192,7 +194,7 @@ async def show_orders(message: Message):
     for abt_id, fio, umumiy_ball, umumiy_orn, order_num in records:
         body += (
             f"✅ <b>{abt_id}</b> ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n"
-            f"📑 Buyurtma tartib raqami: {order_num}\n"
+            f"📑 Buyurtma tartib raqami: {int(order_num)+100}\n"
             f"F.I.SH: {fio}\n"
             f"Umumiy ball: {umumiy_ball}\n"
             f"Mandat saytidagi o‘rningiz: {umumiy_orn}\n\n"
@@ -213,8 +215,6 @@ async def handle_id(message: Message, state: FSMContext):
         return
 
     abt_id = message.text.strip()
-    sql.execute("""TRUNCATE TABLE bhm RESTART IDENTITY;""")
-    db.commit()
     # Avval bazadan qidiramiz
     sql.execute("""
         SELECT abt_id, abt_name, umumiy_ball, umumiy_orn, id
@@ -239,7 +239,7 @@ async def handle_id(message: Message, state: FSMContext):
 
         fio = data["fio"]
         umumiy_ball = data["umumiy_ball"].replace(",", ".")  # <-- shu qo‘shiladi
-        umumiy_orn = str(int(data["orn"]) + 100)
+        umumiy_orn = data["orn"]
 
         # Bazaga yozish (abt_id unique bo‘lishi uchun constraint qo‘yilgan bo‘lishi kerak)
         sql.execute("""
@@ -260,7 +260,7 @@ async def handle_id(message: Message, state: FSMContext):
     # Foydalanuvchiga javob
     text = (
         f"<b>✅ Tabriklaymiz:</b> {abt_id} ID raqamli abituriyent ruxsatnomasiga buyurtma qabul qilindi\n\n"
-        f"<b>📑 Buyurtma tartib raqami:</b> {order_number}\n"
+        f"<b>📑 Buyurtma tartib raqami:</b> {int(order_number)+100}\n"
         f"🪪 F.I.SH: {fio}\n"
         f"🎓 Umumiy ball: {umumiy_ball}\n"
         f"📊 Mandat saytidagi o‘rningiz: {umumiy_orn}\n\n"
