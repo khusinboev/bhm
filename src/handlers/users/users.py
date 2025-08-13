@@ -237,8 +237,8 @@ async def handle_id(message: Message, state: FSMContext):
             return
 
         fio = data["fio"]
-        umumiy_ball = data["umumiy_ball"]
-        umumiy_orn = str(int(data["orn"])+100)
+        umumiy_ball = data["umumiy_ball"].replace(",", ".")  # <-- shu qo‘shiladi
+        umumiy_orn = str(int(data["orn"]) + 100)
 
         # Bazaga yozish (abt_id unique bo‘lishi uchun constraint qo‘yilgan bo‘lishi kerak)
         sql.execute("""
