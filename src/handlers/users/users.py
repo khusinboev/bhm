@@ -167,7 +167,7 @@ async def handle_id(message: Message, state: FSMContext):
         except: pass
 
         if info is None:
-            await message.answer("❌ Bunday ID topilmadi. Iltimos, ID raqamini tekshiring.")
+            await message.answer("❌ Bunday ID topilmadi. Iltimos, ID raqamini tekshiring.\n\n<i>Mandat saytidagi uzilishlar sababli ham sizning natijangiz chiqmayotgan bo'lishi mumkin. Birozdan so'ng qayta urinib ko'ring!</i>", parse_mode="html")
             return
 
         fio = info["fio"]
