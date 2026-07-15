@@ -10,7 +10,7 @@ from aiogram.types import Message
 from config import bot
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
-from src.utils.mandat_parser import fetch_details, format_full_report, MandatUnavailable
+from src.utils.mandat_parser import fetch_details, format_full_report, MandatBusy, MandatUnavailable
 
 data_router = Router()
 
@@ -21,9 +21,10 @@ class MainState2(StatesGroup):
 
 # Kesh sozlamalari. Redis ishlamay qolsa ham bot ishlashda davom etadi —
 # shunchaki keshsiz, har safar saytdan oladi.
-CACHE_TIMEOUT = 300  # 5 daqiqa
+# Natijalar e'lon qilingach o'zgarmaydi — uzun kesh saytga yukni kamaytiradi
+CACHE_TIMEOUT = 3600  # 1 soat
 CACHE_PREFIX = "mandat:full:"
-redis = aioredis.Redis(host="localhost", port=6379, decode_responses=True)
+redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
 
 
 async def get_from_cache(abt_id: str) -> str | None:
@@ -48,6 +49,8 @@ async def get_abiturient_info(abt_id: str) -> str:
 
     try:
         info = await fetch_details(abt_id)
+    except MandatBusy:
+        return "🚨 Hozir so'rovlar juda ko'p, navbat to'la.\nIltimos, 1-2 daqiqadan so'ng qayta urinib ko'ring."
     except MandatUnavailable:
         return "🚨 mandat.uzbmb.uz sayti hozir javob bermayapti.\nIltimos, birozdan so'ng qayta urinib ko'ring."
 

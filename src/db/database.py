@@ -20,7 +20,7 @@ _pool: ThreadedConnectionPool | None = None
 def _get_pool() -> ThreadedConnectionPool:
     global _pool
     if _pool is None:
-        _pool = ThreadedConnectionPool(minconn=1, maxconn=10, **DB_CONFIG)
+        _pool = ThreadedConnectionPool(minconn=1, maxconn=20, **DB_CONFIG)
     return _pool
 
 

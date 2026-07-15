@@ -51,7 +51,11 @@ async def main():
     dp.include_router(channel_router)
     dp.include_router(other_router)
 
-    await bot(GetUpdates(offset=-1, timeout=0))
+    try:
+        # Navbatda qolgan eski update'larni tashlab yuborish (majburiy emas)
+        await bot(GetUpdates(offset=-1, timeout=0))
+    except Exception as e:
+        logging.warning(f"Eski update'larni tashlab bo'lmadi, davom etamiz: {e}")
     await dp.start_polling(bot)
 
 

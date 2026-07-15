@@ -3,7 +3,7 @@ import os
 import psycopg2
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
-from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,5 +33,7 @@ ADMIN_ID = ADMINS = [int(admin_id) for admin_id in os.getenv("ADMINS_ID").split(
 
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(link_preview_is_disabled=True))
-storage = MemoryStorage()
+# RedisStorage: bot qayta ishga tushganda foydalanuvchi holatlari (FSM) yo'qolmaydi.
+# db=1 — boshqa loyihalar bilan kalit to'qnashuvining oldini olish uchun alohida baza
+storage = RedisStorage.from_url("redis://localhost:6379/1", state_ttl=86400, data_ttl=86400)
 dp = Dispatcher(storage=storage)

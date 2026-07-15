@@ -1,4 +1,5 @@
 import logging
+import time
 
 from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
@@ -7,11 +8,31 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, User
 from config import sql, db, bot, ADMIN_ID
 from src.db import database
 
+# A'zolik keshi: faqat musbat natija keshlanadi, shunda "Qo'shildim" bosilganda
+# yangi a'zolik darhol ko'rinadi, a'zolar esa TTL davomida qayta tekshirilmaydi
+_MEMBER_TTL = 120
+_member_cache: dict[int, float] = {}  # user_id -> muddati (monotonic)
+
+# Majburiy kanallar ro'yxati kam o'zgaradi — DB'ga har xabarda bormaslik uchun kesh
+_CHANNELS_TTL = 60
+_channels_cache: tuple[float, list] | None = None
+
 
 class CheckData:
     @staticmethod
     async def check_member(bot: Bot, user_id: int):
-        mandatory = await database.fetchall("SELECT chat_id FROM public.mandatorys")
+        global _channels_cache
+        now = time.monotonic()
+
+        if _member_cache.get(user_id, 0.0) > now:
+            return True, []
+
+        if _channels_cache is not None and _channels_cache[0] > now:
+            mandatory = _channels_cache[1]
+        else:
+            mandatory = await database.fetchall("SELECT chat_id FROM public.mandatorys")
+            _channels_cache = (now + _CHANNELS_TTL, mandatory)
+
         if not mandatory:
             return True, []
 
@@ -24,7 +45,14 @@ class CheckData:
                     channels.append(chat_id)
             except Exception as e:
                 logging.warning(f"Kanal a'zoligini tekshirib bo'lmadi (chat_id={chat_id}): {e}")
-        return (len(channels) == 0), channels
+
+        ok = len(channels) == 0
+        if ok:
+            if len(_member_cache) > 50_000:
+                for uid in [u for u, exp in _member_cache.items() if exp <= now]:
+                    _member_cache.pop(uid, None)
+            _member_cache[user_id] = now + _MEMBER_TTL
+        return ok, channels
 
     @staticmethod
     async def channels_btn(channels: list):

@@ -11,7 +11,7 @@ from config import bot, ADMIN_ID
 from src.db import database
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
-from src.utils.mandat_parser import fetch_details, MandatUnavailable
+from src.utils.mandat_parser import fetch_details, MandatBusy, MandatUnavailable
 
 user_router = Router()
 
@@ -146,6 +146,11 @@ async def handle_id(message: Message, state: FSMContext):
         loading = await message.answer("🔍 Ma'lumotlar olinmoqda, kuting...")
         try:
             info = await fetch_details(abt_id)
+        except MandatBusy:
+            try: await loading.delete()
+            except: pass
+            await message.answer("🚨 Hozir so'rovlar juda ko'p, navbat to'la.\nIltimos, 1-2 daqiqadan so'ng qayta urinib ko'ring.")
+            return
         except MandatUnavailable:
             try: await loading.delete()
             except: pass

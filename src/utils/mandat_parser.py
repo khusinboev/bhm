@@ -25,12 +25,19 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36"
 )
 
-# Sayt yuklama paytida sekin javob beradi — timeout katta, 2 urinish
-REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=60, connect=25)
+# Cho'qqi yukda slotlar tez bo'shashi uchun timeout qisqartirilgan: 2 urinish x 30s
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30, connect=15)
 RETRY_COUNT = 2
 
 # Saytga bir vaqtda boradigan so'rovlar chegarasi
 semaphore = asyncio.Semaphore(8)
+
+# Navbat himoyasi: shuncha noyob ID kutayotgan bo'lsa, yangilari darhol rad etiladi
+MAX_QUEUE = 100
+_waiting = 0
+
+# Bir xil ID uchun parallel so'rovlar bitta so'rovga birlashtiriladi
+_inflight: dict[str, asyncio.Task] = {}
 
 _session: aiohttp.ClientSession | None = None
 _session_lock = asyncio.Lock()
@@ -38,6 +45,10 @@ _session_lock = asyncio.Lock()
 
 class MandatUnavailable(Exception):
     """Sayt javob bermadi (timeout yoki ulanish xatosi)."""
+
+
+class MandatBusy(Exception):
+    """Navbat to'la — foydalanuvchi keyinroq urinishi kerak."""
 
 
 async def _get_session() -> aiohttp.ClientSession:
@@ -66,30 +77,49 @@ def _norm(text: str) -> str:
 async def fetch_details(abt_id: str) -> dict | None:
     """ID bo'yicha abituriyent sahifasini olib, ma'lumotlar lug'atini qaytaradi.
 
+    Bir xil ID bo'yicha parallel chaqiruvlar saytga bitta so'rovga birlashtiriladi.
+
     None — bunday ID saytda topilmadi.
     MandatUnavailable — sayt javob bermadi.
+    MandatBusy — navbat to'la, so'rov qabul qilinmadi.
     """
+    task = _inflight.get(abt_id)
+    if task is None:
+        if _waiting >= MAX_QUEUE:
+            raise MandatBusy()
+        task = asyncio.create_task(_fetch_details(abt_id))
+        _inflight[abt_id] = task
+        task.add_done_callback(lambda _t, _id=abt_id: _inflight.pop(_id, None))
+    return await task
+
+
+async def _fetch_details(abt_id: str) -> dict | None:
+    global _waiting
     session = await _get_session()
     last_err: Exception | None = None
-    for attempt in range(1, RETRY_COUNT + 1):
-        try:
-            async with semaphore:
-                async with session.get(
-                    SEARCH_URL,
-                    params={"entrantid": abt_id, "lang": "uz"},
-                    allow_redirects=True,
-                ) as resp:
-                    final_url = str(resp.url)
-                    html = await resp.text()
-            if "/Bakalavr/Details" not in final_url:
-                # Redirect bo'lmadi — bunday ID mavjud emas
-                return None
-            return parse_details(html, abt_id)
-        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-            last_err = e
-            logging.warning(f"mandat.uzbmb.uz so'rovi muvaffaqiyatsiz ({attempt}-urinish, ID={abt_id}): {e}")
-            if attempt < RETRY_COUNT:
-                await asyncio.sleep(2)
+    _waiting += 1
+    try:
+        for attempt in range(1, RETRY_COUNT + 1):
+            try:
+                async with semaphore:
+                    async with session.get(
+                        SEARCH_URL,
+                        params={"entrantid": abt_id, "lang": "uz"},
+                        allow_redirects=True,
+                    ) as resp:
+                        final_url = str(resp.url)
+                        html = await resp.text()
+                if "/Bakalavr/Details" not in final_url:
+                    # Redirect bo'lmadi — bunday ID mavjud emas
+                    return None
+                return parse_details(html, abt_id)
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                last_err = e
+                logging.warning(f"mandat.uzbmb.uz so'rovi muvaffaqiyatsiz ({attempt}-urinish, ID={abt_id}): {e}")
+                if attempt < RETRY_COUNT:
+                    await asyncio.sleep(2)
+    finally:
+        _waiting -= 1
     raise MandatUnavailable(str(last_err))
 
 
