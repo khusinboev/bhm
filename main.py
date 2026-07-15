@@ -24,7 +24,9 @@ async def on_startup() -> None:
 
 
 async def on_shutdown() -> None:
-    # HTTP sessiya va DB pool'ni toza yopamiz
+    # Yo'lda qolgan handlerlar tugashiga qisqa muhlat — aks holda ular
+    # yopilgan pool/sessiyaga urilib "pool is closed" xatolari chiqaradi
+    await asyncio.sleep(3)
     await mandat_parser.close_session()
     await database.close_pool()
 

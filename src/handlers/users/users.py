@@ -11,7 +11,7 @@ from config import bot, ADMIN_ID
 from src.db import database
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
-from src.utils import result_service
+from src.utils import rate_limit, result_service
 from src.utils.mandat_parser import MandatBusy, MandatUnavailable
 
 user_router = Router()
@@ -124,6 +124,9 @@ async def my_orders(message: Message):
 @user_router.message(MainState.natija2, F.text.regexp(r"^\d{7}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id(message: Message, state: FSMContext):
     user_id = message.from_user.id
+    if not rate_limit.allow(user_id):
+        await message.answer("⏳ Juda tez-tez so'rov yubordingiz. Iltimos, bir necha soniya kutib qayta urining.")
+        return
     check_status, channels = await CheckData.check_member(bot, user_id)
     if not check_status:
         await message.answer(

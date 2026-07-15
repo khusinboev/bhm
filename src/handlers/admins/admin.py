@@ -14,6 +14,7 @@ from dateutil.relativedelta import relativedelta
 
 from src.keyboards.buttons import AdminPanel
 from config import sql, ADMIN_ID, DB_CONFIG, bot
+from src.db import database
 from src.keyboards.keyboard_func import PanelFunc
 
 admin_router = Router()
@@ -51,35 +52,29 @@ async def new(message: Message):
     current_month = now.replace(day=1)
     months = [current_month - relativedelta(months=i) for i in range(3)]
 
-    conn = psycopg2.connect(**DB_CONFIG)
-    cur = conn.cursor()
-
-    # Jami foydalanuvchilar
-    cur.execute("SELECT COUNT(*) FROM accounts")
-    all_users = cur.fetchone()[0]
+    # Barcha so'rovlar async pool orqali — event loop bloklanmaydi
+    row = await database.fetchone("SELECT COUNT(*) FROM accounts")
+    all_users = row[0]
 
     # Oxirgi 3 oydagi jami foydalanuvchilar
-    cur.execute("SELECT COUNT(*) FROM accounts WHERE date >= %s", (months[-1],))
-    last_3_months = cur.fetchone()[0]
+    row = await database.fetchone("SELECT COUNT(*) FROM accounts WHERE date >= %s", (months[-1],))
+    last_3_months = row[0]
 
     # Har bir oy bo‘yicha statistikalar
     month_counts = {}
     for month in months:
-        cur.execute(
+        row = await database.fetchone(
             "SELECT COUNT(*) FROM accounts WHERE date >= %s AND date < %s",
             (month, month + relativedelta(months=1))
         )
-        month_counts[month.strftime("%B")] = cur.fetchone()[0] or 0  # Oy nomlari
+        month_counts[month.strftime("%B")] = row[0] or 0  # Oy nomlari
 
     # Oxirgi 7 kun statistikasi
     last_7_days = {}
     for i in range(7):
         date_str = (now - timedelta(days=i)).strftime("%Y-%m-%d")
-        cur.execute("SELECT COUNT(*) FROM accounts WHERE date = %s", (date_str,))
-        last_7_days[date_str] = cur.fetchone()[0] or 0
-
-    cur.close()
-    conn.close()
+        row = await database.fetchone("SELECT COUNT(*) FROM accounts WHERE date = %s", (date_str,))
+        last_7_days[date_str] = row[0] or 0
 
     # Xabarni tayyorlash
     stats_text = (

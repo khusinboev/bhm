@@ -9,7 +9,7 @@ from aiogram.types import Message
 from config import bot
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
-from src.utils import result_service
+from src.utils import rate_limit, result_service
 from src.utils.mandat_parser import format_full_report, MandatBusy, MandatUnavailable
 
 data_router = Router()
@@ -57,6 +57,9 @@ async def natija_btn(message: Message, state: FSMContext):
 @data_router.message(MainState2.natija, F.text.regexp(r"^\d{7}$"), F.chat.type == ChatType.PRIVATE)
 async def handle_id_query(msg: Message):
     user_id = msg.from_user.id
+    if not rate_limit.allow(user_id):
+        await msg.answer("⏳ Juda tez-tez so'rov yubordingiz. Iltimos, bir necha soniya kutib qayta urining.")
+        return
     check_status, channels = await CheckData.check_member(bot, user_id)
     if not check_status:
         await msg.answer("❗ Iltimos, quyidagi kanallarga a'zo bo'ling:",
