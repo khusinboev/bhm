@@ -11,7 +11,8 @@ from config import bot, ADMIN_ID
 from src.db import database
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
-from src.utils.mandat_parser import fetch_details, MandatBusy, MandatUnavailable
+from src.utils import result_service
+from src.utils.mandat_parser import MandatBusy, MandatUnavailable
 
 user_router = Router()
 
@@ -141,11 +142,18 @@ async def handle_id(message: Message, state: FSMContext):
 
     if record:
         abt_id, fio, umumiy_ball, umumiy_orn, order_number = record
+        if umumiy_ball is None:
+            # Buyurtmadan keyin natija chiqqan bo'lishi mumkin — omborni tekshiramiz
+            fresh = await database.fetchone(
+                "SELECT umumiy_ball FROM natijalar WHERE abt_id = %s", (abt_id,)
+            )
+            if fresh and fresh[0] is not None:
+                umumiy_ball = fresh[0]
     else:
-        # Bazada yo'q — saytdan olamiz
+        # Bazada yo'q — resolver orqali (avval ombor/kesh, kerak bo'lsa sayt)
         loading = await message.answer("🔍 Ma'lumotlar olinmoqda, kuting...")
         try:
-            info = await fetch_details(abt_id)
+            info = await result_service.get_result(abt_id)
         except MandatBusy:
             try: await loading.delete()
             except: pass

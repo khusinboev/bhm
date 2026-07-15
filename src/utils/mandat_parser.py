@@ -112,7 +112,8 @@ async def _fetch_details(abt_id: str) -> dict | None:
                 if "/Bakalavr/Details" not in final_url:
                     # Redirect bo'lmadi — bunday ID mavjud emas
                     return None
-                return parse_details(html, abt_id)
+                # HTML tahlili CPU ishi — event loop'ni bloklamasligi uchun alohida thread'da
+                return await asyncio.to_thread(parse_details, html, abt_id)
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 last_err = e
                 logging.warning(f"mandat.uzbmb.uz so'rovi muvaffaqiyatsiz ({attempt}-urinish, ID={abt_id}): {e}")

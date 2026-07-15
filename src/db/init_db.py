@@ -48,4 +48,18 @@ async def create_all_base():
     );""")
     db.commit()
 
+    # Yakuniy natijalar ombori: ID bo'yicha bir marta olinadi, keyin doim shu yerdan
+    sql.execute("""CREATE TABLE IF NOT EXISTS public.natijalar (
+        abt_id VARCHAR(20) PRIMARY KEY,
+        fio TEXT,
+        umumiy_ball NUMERIC,
+        result_json JSONB NOT NULL,
+        found_at TIMESTAMP DEFAULT NOW()
+    );""")
+    db.commit()
+
+    # Tarqatish uchun: natija userga yuborilgan vaqt
+    sql.execute("ALTER TABLE bhm ADD COLUMN IF NOT EXISTS notified_at TIMESTAMP;")
+    db.commit()
+
 

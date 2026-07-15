@@ -1,6 +1,5 @@
 import logging
 
-import redis.asyncio as aioredis
 from aiogram import Router, F
 from aiogram.enums import ChatType
 from aiogram.fsm.context import FSMContext
@@ -10,7 +9,8 @@ from aiogram.types import Message
 from config import bot
 from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
-from src.utils.mandat_parser import fetch_details, format_full_report, MandatBusy, MandatUnavailable
+from src.utils import result_service
+from src.utils.mandat_parser import format_full_report, MandatBusy, MandatUnavailable
 
 data_router = Router()
 
@@ -19,36 +19,11 @@ class MainState2(StatesGroup):
     natija = State()
 
 
-# Kesh sozlamalari. Redis ishlamay qolsa ham bot ishlashda davom etadi —
-# shunchaki keshsiz, har safar saytdan oladi.
-# Natijalar e'lon qilingach o'zgarmaydi — uzun kesh saytga yukni kamaytiradi
-CACHE_TIMEOUT = 3600  # 1 soat
-CACHE_PREFIX = "mandat:full:"
-redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
-
-
-async def get_from_cache(abt_id: str) -> str | None:
-    try:
-        return await redis.get(CACHE_PREFIX + abt_id)
-    except Exception as e:
-        logging.warning(f"Redis'dan o'qib bo'lmadi: {e}")
-        return None
-
-
-async def save_to_cache(abt_id: str, data: str) -> None:
-    try:
-        await redis.set(CACHE_PREFIX + abt_id, data, ex=CACHE_TIMEOUT)
-    except Exception as e:
-        logging.warning(f"Redis'ga yozib bo'lmadi: {e}")
-
-
 async def get_abiturient_info(abt_id: str) -> str:
-    cached = await get_from_cache(abt_id)
-    if cached:
-        return cached
-
+    # Barcha kesh/baza mantiqi result_service ichida:
+    # yakuniy natija — doim bazadan, "hali chiqmagan" — 3 daqiqalik kesh
     try:
-        info = await fetch_details(abt_id)
+        info = await result_service.get_result(abt_id)
     except MandatBusy:
         return "🚨 Hozir so'rovlar juda ko'p, navbat to'la.\nIltimos, 1-2 daqiqadan so'ng qayta urinib ko'ring."
     except MandatUnavailable:
@@ -57,9 +32,7 @@ async def get_abiturient_info(abt_id: str) -> str:
     if info is None:
         return "❌ Bunday ID topilmadi. Iltimos, ID raqamini tekshiring.\n\n<i>Mandat saytidagi uzilishlar sababli ham sizning natijangiz chiqmayotgan bo'lishi mumkin. Birozdan so'ng qayta urinib ko'ring!</i>"
 
-    result = format_full_report(info)
-    await save_to_cache(abt_id, result)
-    return result
+    return format_full_report(info)
 
 
 @data_router.message(F.text == "📊 Natija", F.chat.type == ChatType.PRIVATE)
