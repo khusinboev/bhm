@@ -55,7 +55,7 @@ async def get_abiturient_info(abt_id: str) -> str:
         return "🚨 mandat.uzbmb.uz sayti hozir javob bermayapti.\nIltimos, birozdan so'ng qayta urinib ko'ring."
 
     if info is None:
-        return "❌ Bunday ID topilmadi. Iltimos, ID raqamini tekshiring."
+        return "❌ Bunday ID topilmadi. Iltimos, ID raqamini tekshiring.\n\n<i>Mandat saytidagi uzilishlar sababli ham sizning natijangiz chiqmayotgan bo'lishi mumkin. Birozdan so'ng qayta urinib ko'ring!</i>"
 
     result = format_full_report(info)
     await save_to_cache(abt_id, result)
