@@ -23,7 +23,7 @@ class MainState(StatesGroup):
 
 @user_router.message(CommandStart())
 async def start_cmd(message: Message):
-    await message.answer("<b>Botimizdan foydalanish uchun quyidagi tugmalardan birini tanlang</b>",
+    await message.answer("<b>📄 Natijani ko'rish uchun quyidagi tugmalardan birini tanlang:</b>",
                          reply_markup=await UserPanels.main2(), parse_mode="html")
 
 
@@ -34,7 +34,7 @@ async def check(call: CallbackQuery):
         check_status, channels = await CheckData.check_member(bot, user_id)
         if check_status:
             await bot.send_message(chat_id=user_id,
-                                   text="<b>Botimizdan foydalanish uchun quyidagi tugmalardan birini tanlang</b>",
+                                   text="<b>📄 Natijani ko'rish uchun quyidagi tugmalardan birini tanlang:</b>",
                                    reply_markup=await UserPanels.main2(),
                                    parse_mode="html")
             try:
