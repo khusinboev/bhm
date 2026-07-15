@@ -165,7 +165,7 @@ def parse_details(html: str, abt_id: str) -> dict | None:
     for header in soup.select("div.card-header, .m3-hero__status, .m3-empty, .m3-stat-empty"):
         text = header.get_text(" ", strip=True)
         if "ISHTIROK ETMAGAN" in _norm(text).upper():
-            status_msg = text
+            status_msg = text + "\n<i>(yoki test natijalari hali e’lon qilinmagan)</i>"
             break
 
     # Ball bloklari — yangi dizayndagi .m3-score kartalari
