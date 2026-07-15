@@ -1,37 +1,38 @@
-import os
+import logging
 
 from aiogram import Bot
-from aiogram.filters import BaseFilter
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, User, FSInputFile, Message
+from aiogram.enums import ChatMemberStatus
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, User
 
 from config import sql, db, bot, ADMIN_ID
+from src.db import database
 
 
 class CheckData:
     @staticmethod
     async def check_member(bot: Bot, user_id: int):
-        sql.execute("SELECT chat_id FROM public.mandatorys")
-        mandatory = sql.fetchall()
+        mandatory = await database.fetchall("SELECT chat_id FROM public.mandatorys")
         if not mandatory:
             return True, []
 
         channels = []
-        for chat_id in mandatory:
+        for (chat_id,) in mandatory:
             try:
-                r = await bot.get_chat_member(chat_id=chat_id[0], user_id=user_id)
-                if r.status == "left" and user_id not in ADMIN_ID:
-                    channels.append(chat_id[0])
-                print(channels)
+                r = await bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+                # "left" bilan birga kanaldan chetlatilgan ("kicked") ham a'zo emas
+                if r.status in (ChatMemberStatus.LEFT, ChatMemberStatus.KICKED) and user_id not in ADMIN_ID:
+                    channels.append(chat_id)
             except Exception as e:
-                print(f"Xatolik: {e}")
+                logging.warning(f"Kanal a'zoligini tekshirib bo'lmadi (chat_id={chat_id}): {e}")
         return (len(channels) == 0), channels
 
     @staticmethod
     async def channels_btn(channels: list):
         keyboard = []
         for index, channel_id in enumerate(channels, 1):
-            sql.execute("SELECT username FROM public.mandatorys WHERE chat_id=%s", (channel_id,))
-            link = sql.fetchone()
+            link = await database.fetchone(
+                "SELECT username FROM public.mandatorys WHERE chat_id=%s", (channel_id,)
+            )
             if link:
                 keyboard.append([
                     InlineKeyboardButton(

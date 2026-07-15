@@ -1,7 +1,8 @@
 from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardButton, KeyboardButton, InlineKeyboardMarkup
 
-from config import sql, bot
+from config import bot
+from src.db import database
 
 
 class AdminPanel:
@@ -80,8 +81,7 @@ class AdminPanel:
 class UserPanels:
     @staticmethod
     async def join_btn(user_id):
-        sql.execute("SELECT chat_id FROM public.mandatorys")
-        rows = sql.fetchall()
+        rows = await database.fetchall("SELECT chat_id FROM public.mandatorys")
         join_inline = []
         title = 1
         for row in rows:

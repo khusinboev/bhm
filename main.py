@@ -4,7 +4,9 @@ from aiogram import Bot, Dispatcher
 from aiogram.methods import GetUpdates
 
 from config import BOT_TOKEN, dp, bot
+from src.db import database
 from src.db.init_db import create_all_base
+from src.utils import mandat_parser
 from src.handlers.admins.add_admin import add_router
 from src.handlers.admins.admin import admin_router
 from src.handlers.admins.messages import msg_router
@@ -21,11 +23,18 @@ async def on_startup() -> None:
     await create_all_base()
 
 
+async def on_shutdown() -> None:
+    # HTTP sessiya va DB pool'ni toza yopamiz
+    await mandat_parser.close_session()
+    await database.close_pool()
+
+
 async def main():
     await on_startup()
     logging.basicConfig(level=logging.INFO)
 
     dp.update.middleware(RegisterUserMiddleware())
+    dp.shutdown.register(on_shutdown)
 
     #for admin
     dp.include_router(admin_router)

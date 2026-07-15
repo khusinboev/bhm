@@ -1,36 +1,41 @@
-from aiogram.types import Update
-from aiogram.dispatcher.middlewares.base import BaseMiddleware
-import psycopg2
+import logging
 from datetime import datetime
+
 import pytz
-from config import DB_CONFIG
+from aiogram.dispatcher.middlewares.base import BaseMiddleware
+from aiogram.types import Update
+
+from src.db import database
+
 
 class RegisterUserMiddleware(BaseMiddleware):
+    """Har bir yangi foydalanuvchini accounts jadvaliga yozib boradi.
+
+    Ro'yxatga olishdagi xatolik hech qachon asosiy handlerni to'xtatmasligi kerak,
+    shuning uchun butun mantiq try/except ichida.
+    """
+
     async def __call__(self, handler, event: Update, data: dict):
-        if not event.message:
-            return await handler(event, data)  # Middleware davom etsin
+        user = None
+        if event.message:
+            user = event.message.from_user
+        elif event.callback_query:
+            user = event.callback_query.from_user
 
-        user = event.message.from_user
-        user_id = user.id
-        date = datetime.now(pytz.timezone("Asia/Tashkent")).date()
-        lang_code = user.language_code if user.language_code else "uz"
+        if user is not None:
+            try:
+                date = datetime.now(pytz.timezone("Asia/Tashkent")).date()
+                lang_code = user.language_code or "uz"
+                # Bitta so'rov bilan: mavjud bo'lmasa qo'shadi (alohida SELECT+INSERT shart emas)
+                await database.execute(
+                    """
+                    INSERT INTO public.accounts (user_id, lang_code, date)
+                    SELECT %s, %s, %s
+                    WHERE NOT EXISTS (SELECT 1 FROM public.accounts WHERE user_id = %s)
+                    """,
+                    (user.id, lang_code, date, user.id),
+                )
+            except Exception:
+                logging.exception("Foydalanuvchini ro'yxatga olishda xatolik")
 
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
-
-        # **1️⃣ SQL Injection xavfsizligi uchun f-string emas, parametr ishlatilmoqda**
-        cur.execute("SELECT user_id FROM public.accounts WHERE user_id = %s", (user_id,))
-        if not cur.fetchone():  # Foydalanuvchi bazada bo‘lmasa
-            cur.execute("DELETE FROM public.accounts WHERE user_id = %s", (user_id,))
-            conn.commit()
-
-            cur.execute(
-                "INSERT INTO accounts (user_id, lang_code, date) VALUES (%s, %s, %s)",
-                (user_id, lang_code, date)
-            )
-            conn.commit()
-
-        cur.close()
-        conn.close()
-
-        return await handler(event, data)  # **2️⃣ Xatolik tuzatildi, middleware davom etadi**
+        return await handler(event, data)

@@ -1,7 +1,8 @@
 python-dotenv==1.1.0
 aiogram==3.20.0.post0
+aiohttp>=3.9          # aiogram bilan birga keladi, parser to'g'ridan-to'g'ri ishlatadi
+beautifulsoup4>=4.12
 psycopg2-binary==2.9.10
 python-dateutil==2.9.0.post0
 pytz==2025.2
-PyMuPDF==1.26.3
 redis>=4.2.0
