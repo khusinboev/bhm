@@ -143,7 +143,8 @@ async def handle_id(message: Message, state: FSMContext):
         FROM bhm
         WHERE user_id = %s AND abt_id = %s
     """, (user_id, abt_id))
-
+    await message.answer("🚨 Hozir so'rovlar juda ko'p, navbat to'la.\nIltimos, 1-2 daqiqadan so'ng qayta urinib ko'ring.")
+    return
     if record:
         abt_id, fio, umumiy_ball, umumiy_orn, order_number = record
         if umumiy_ball is None:
