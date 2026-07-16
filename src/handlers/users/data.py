@@ -11,6 +11,7 @@ from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 from src.utils import rate_limit, result_service
 from src.utils.mandat_parser import format_full_report, MandatBusy, MandatUnavailable
+from src.utils.safe_send import answer_safe
 
 data_router = Router()
 
@@ -77,7 +78,7 @@ async def handle_id_query(msg: Message):
     try:
         await loading_msg.delete()
     except: pass
-    await msg.answer(result, parse_mode="HTML")
+    await answer_safe(msg, result, parse_mode="HTML")
 
 
 @data_router.message(MainState2.natija, F.chat.type == ChatType.PRIVATE)

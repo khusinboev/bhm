@@ -1,7 +1,9 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+from aiogram.exceptions import TelegramForbiddenError
 from aiogram.methods import GetUpdates
+from aiogram.types import ErrorEvent
 
 from config import BOT_TOKEN, dp, bot
 from src.db import database
@@ -24,6 +26,16 @@ async def on_startup() -> None:
     await create_all_base()
 
 
+async def on_error(event: ErrorEvent) -> bool:
+    # User xabar yuborib darhol botni bloklasa — bu odatiy holat,
+    # to'liq traceback bilan jurnalni to'ldirmaymiz
+    if isinstance(event.exception, TelegramForbiddenError):
+        logging.warning("Bloklagan userga javob yuborib bo'lmadi (o'tkazib yuborildi)")
+        return True
+    logging.exception("Handlerda xatolik", exc_info=event.exception)
+    return True
+
+
 async def on_shutdown() -> None:
     # Yo'lda qolgan handlerlar tugashiga qisqa muhlat — aks holda ular
     # yopilgan pool/sessiyaga urilib "pool is closed" xatolari chiqaradi
@@ -38,6 +50,7 @@ async def main():
 
     dp.update.middleware(RegisterUserMiddleware())
     dp.shutdown.register(on_shutdown)
+    dp.errors.register(on_error)
 
     #for admin
     dp.include_router(admin_router)

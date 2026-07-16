@@ -13,6 +13,7 @@ from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 from src.utils import rate_limit, result_service
 from src.utils.mandat_parser import MandatBusy, MandatUnavailable
+from src.utils.safe_send import answer_safe
 
 user_router = Router()
 
@@ -216,7 +217,7 @@ async def handle_id(message: Message, state: FSMContext):
         f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>"
     )
 
-    await message.answer(text, parse_mode="html")
+    await answer_safe(message, text, parse_mode="html")
 
 
 @user_router.message(MainState.natija2, F.text != "📊 Natija", F.chat.type == ChatType.PRIVATE)

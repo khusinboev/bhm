@@ -9,17 +9,23 @@ Tartib:
      shu zahoti natijalar jadvaliga yoziladi (write-through).
 """
 
+import asyncio
 import json
 import logging
 
 import redis.asyncio as aioredis
 
 from src.db import database
-from src.utils.mandat_parser import fetch_details
+from src.utils.mandat_parser import fetch_details, MandatUnavailable
 
 # "Hali chiqmagan" javob keshining muddati
 PENDING_TTL = 180  # 3 daqiqa
 CACHE_PREFIX = "mandat:info:"
+
+# Navbat + sayt uchun umumiy chegara: shundan uzoq kutgan so'rov
+# "sayt javob bermayapti" deb yakunlanadi (fon vazifa baribir tugaydi
+# va natija omborga tushadi — user qayta so'raganda darhol oladi)
+FETCH_DEADLINE = 90  # soniya
 
 redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
 
@@ -54,7 +60,12 @@ async def get_result(abt_id: str) -> dict | None:
     except Exception as e:
         logging.warning(f"Redis o'qish xatosi: {e}")
 
-    info = await fetch_details(abt_id)
+    try:
+        info = await asyncio.wait_for(fetch_details(abt_id), timeout=FETCH_DEADLINE)
+    except asyncio.TimeoutError:
+        # Navbat juda uzun — userni cheksiz kuttirmaymiz. Saytga ketgan
+        # fon so'rov bekor bo'lmaydi: tugagach natija omborga yoziladi.
+        raise MandatUnavailable("kutish muddati tugadi (navbat uzun)")
     if info is None:
         return None
 
