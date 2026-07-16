@@ -10,6 +10,7 @@ from src.utils import mandat_parser
 from src.handlers.admins.add_admin import add_router
 from src.handlers.admins.admin import admin_router
 from src.handlers.admins.messages import msg_router
+from src.handlers.admins.tarqatish import tarqat_router
 from src.handlers.others.channels import channel_router
 from src.handlers.others.groups import group_router
 from src.handlers.others.other import other_router
@@ -42,6 +43,7 @@ async def main():
     dp.include_router(admin_router)
     dp.include_router(add_router)
     dp.include_router(msg_router)
+    dp.include_router(tarqat_router)
 
     #for user
     dp.include_router(user_router)

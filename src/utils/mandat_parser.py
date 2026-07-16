@@ -51,6 +51,11 @@ class MandatBusy(Exception):
     """Navbat to'la — foydalanuvchi keyinroq urinishi kerak."""
 
 
+def pending_count() -> int:
+    """Sayt navbatida kutayotgan noyob ID'lar soni (joriy yuk ko'rsatkichi)."""
+    return _waiting
+
+
 async def _get_session() -> aiohttp.ClientSession:
     global _session
     if _session is None or _session.closed:
