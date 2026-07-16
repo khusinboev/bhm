@@ -2,7 +2,7 @@ from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardButton, KeyboardButton, InlineKeyboardMarkup
 
 from config import bot
-from src.db import database
+from src.utils import channels_cache
 
 
 class AdminPanel:
@@ -81,7 +81,7 @@ class AdminPanel:
 class UserPanels:
     @staticmethod
     async def join_btn(user_id):
-        rows = await database.fetchall("SELECT chat_id FROM public.mandatorys")
+        rows = await channels_cache.get_channels()
         join_inline = []
         title = 1
         for row in rows:
