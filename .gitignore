@@ -29,6 +29,11 @@ dist/
 # .env files for environment variables
 .env
 havola.txt
+
+# Broadcast: yuborilmagan userlar ro'yxati (har ishga tushirishda qayta yaraladi)
+failed_users.txt
+test_failed_copy.txt
+test_failed_forward.txt
 # Python packaging
 *.egg
 

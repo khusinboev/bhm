@@ -8,7 +8,7 @@ from aiogram.types import ErrorEvent
 from config import BOT_TOKEN, dp, bot
 from src.db import database
 from src.db.init_db import create_all_base
-from src.utils import mandat_parser
+from src.utils import known_users, mandat_parser
 from src.handlers.admins.add_admin import add_router
 from src.handlers.admins.admin import admin_router
 from src.handlers.admins.messages import msg_router
@@ -24,6 +24,8 @@ from src.middlewares.middleware import RegisterUserMiddleware
 
 async def on_startup() -> None:
     await create_all_base()
+    count = await known_users.preload()
+    logging.info(f"Known-users kesh: {count} ta mavjud user Redis'ga yuklandi")
 
 
 async def on_error(event: ErrorEvent) -> bool:
@@ -45,8 +47,8 @@ async def on_shutdown() -> None:
 
 
 async def main():
-    await on_startup()
     logging.basicConfig(level=logging.INFO)
+    await on_startup()
 
     dp.update.middleware(RegisterUserMiddleware())
     dp.shutdown.register(on_shutdown)

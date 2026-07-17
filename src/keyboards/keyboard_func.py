@@ -1,26 +1,41 @@
 import logging
-import time
 
+import redis.asyncio as aioredis
 from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, User
 
 from config import sql, db, bot, ADMIN_ID
-from src.db import database
 from src.utils import channels_cache
 
 # A'zolik keshi: faqat musbat natija keshlanadi, shunda "Qo'shildim" bosilganda
-# yangi a'zolik darhol ko'rinadi, a'zolar esa TTL davomida qayta tekshirilmaydi
+# yangi a'zolik darhol ko'rinadi, a'zolar esa TTL davomida qayta tekshirilmaydi.
+# Redis'da turgani uchun bot restart bo'lsa ham kesh saqlanib qoladi —
+# har restartdan keyin butun auditoriyaga getChatMember bo'roni bo'lmaydi.
 _MEMBER_TTL = 120
-_member_cache: dict[int, float] = {}  # user_id -> muddati (monotonic)
+_MEMBER_PREFIX = "mandat:member:"
+_member_redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
+
+
+async def _is_member_cached(user_id: int) -> bool:
+    try:
+        return bool(await _member_redis.exists(_MEMBER_PREFIX + str(user_id)))
+    except Exception as e:
+        logging.warning(f"A'zolik keshini Redis'dan o'qib bo'lmadi: {e}")
+        return False  # kesh noaniq — haqiqiy tekshiruvga o'tamiz
+
+
+async def _mark_member_cached(user_id: int) -> None:
+    try:
+        await _member_redis.set(_MEMBER_PREFIX + str(user_id), "1", ex=_MEMBER_TTL)
+    except Exception as e:
+        logging.warning(f"A'zolik keshini Redis'ga yozib bo'lmadi: {e}")
 
 
 class CheckData:
     @staticmethod
     async def check_member(bot: Bot, user_id: int):
-        now = time.monotonic()
-
-        if _member_cache.get(user_id, 0.0) > now:
+        if await _is_member_cached(user_id):
             return True, []
 
         # Kanallar ro'yxati Redis'dan (Postgres'ga faqat kesh bo'sh bo'lsa boriladi)
@@ -40,10 +55,7 @@ class CheckData:
 
         ok = len(channels) == 0
         if ok:
-            if len(_member_cache) > 50_000:
-                for uid in [u for u, exp in _member_cache.items() if exp <= now]:
-                    _member_cache.pop(uid, None)
-            _member_cache[user_id] = now + _MEMBER_TTL
+            await _mark_member_cached(user_id)
         return ok, channels
 
     @staticmethod

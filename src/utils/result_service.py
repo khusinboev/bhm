@@ -22,6 +22,11 @@ from src.utils.mandat_parser import fetch_details, MandatUnavailable
 PENDING_TTL = 180  # 3 daqiqa
 CACHE_PREFIX = "mandat:info:"
 
+# Yakuniy natija keshi: Postgres — doimiy manba, Redis — tezkor qatlam.
+# Ommaviy so'ralgan ID'lar uchun Postgres'ga umuman borilmaydi.
+FINAL_TTL = 6 * 3600  # 6 soat
+FINAL_PREFIX = "mandat:final:"
+
 # Navbat + sayt uchun umumiy chegara: shundan uzoq kutgan so'rov
 # "sayt javob bermayapti" deb yakunlanadi (fon vazifa baribir tugaydi
 # va natija omborga tushadi — user qayta so'raganda darhol oladi)
@@ -47,11 +52,23 @@ async def get_result(abt_id: str) -> dict | None:
 
     MandatBusy / MandatUnavailable fetch_details'dan yuqoriga otiladi.
     """
+    try:
+        cached_final = await redis.get(FINAL_PREFIX + abt_id)
+        if cached_final:
+            return json.loads(cached_final)
+    except Exception as e:
+        logging.warning(f"Redis'dan yakuniy natijani o'qib bo'lmadi: {e}")
+
     row = await database.fetchone(
         "SELECT result_json FROM natijalar WHERE abt_id = %s", (abt_id,)
     )
     if row:
-        return row[0] if isinstance(row[0], dict) else json.loads(row[0])
+        info = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+        try:
+            await redis.set(FINAL_PREFIX + abt_id, json.dumps(info), ex=FINAL_TTL)
+        except Exception as e:
+            logging.warning(f"Redis'ga yakuniy natijani yozib bo'lmadi: {e}")
+        return info
 
     try:
         cached = await redis.get(CACHE_PREFIX + abt_id)
@@ -97,3 +114,7 @@ async def save_final(info: dict) -> None:
         "UPDATE bhm SET umumiy_ball = %s WHERE abt_id = %s AND umumiy_ball IS NULL",
         (ball, info["abt_id"]),
     )
+    try:
+        await redis.set(FINAL_PREFIX + info["abt_id"], json.dumps(info), ex=FINAL_TTL)
+    except Exception as e:
+        logging.warning(f"Redis'ga yakuniy natijani yozib bo'lmadi: {e}")

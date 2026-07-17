@@ -13,6 +13,11 @@ async def create_all_base():
     )""")
     db.commit()
 
+    # Middleware'dagi "WHERE NOT EXISTS ... user_id" tekshiruvi (Redis known-users
+    # keshi noaniq javob bergan holatlarda) shu indekssiz katta jadvalda sekin bo'lardi
+    sql.execute("CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON public.accounts (user_id)")
+    db.commit()
+
     sql.execute("""CREATE TABLE IF NOT EXISTS public.mandatorys
     (
         id SERIAL NOT NULL,
