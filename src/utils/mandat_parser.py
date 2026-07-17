@@ -32,8 +32,9 @@ RETRY_COUNT = 2
 # Saytga bir vaqtda boradigan so'rovlar chegarasi
 semaphore = asyncio.Semaphore(8)
 
-# Navbat himoyasi: shuncha noyob ID kutayotgan bo'lsa, yangilari darhol rad etiladi
-MAX_QUEUE = 100
+# Navbat himoyasi: shuncha noyob ID kutayotgan bo'lsa, yangilari darhol rad etiladi.
+# 20 — portlashda bir qism foydalanuvchi ishlanadi, qolganlari darhol "kuting" oladi
+MAX_QUEUE = 20
 _waiting = 0
 
 # Bir xil ID uchun parallel so'rovlar bitta so'rovga birlashtiriladi
