@@ -27,10 +27,15 @@ CACHE_PREFIX = "mandat:info:"
 FINAL_TTL = 6 * 3600  # 6 soat
 FINAL_PREFIX = "mandat:final:"
 
-# Navbat + sayt uchun umumiy chegara: shundan uzoq kutgan so'rov
-# "sayt javob bermayapti" deb yakunlanadi (fon vazifa baribir tugaydi
-# va natija omborga tushadi — user qayta so'raganda darhol oladi)
-FETCH_DEADLINE = 90  # soniya
+# Har bir chaqiruvchining o'z kutish chegarasi: shundan uzoq kutgan so'rov
+# "sayt javob bermayapti" deb yakunlanadi. Fon vazifa esa (shield tufayli)
+# bekor bo'lmaydi — tugagach natija omborga yoziladi, user qayta so'raganda
+# darhol oladi. Shu tufayli ko'pchilik "kuting" javobini tez oladi,
+# sayt topganlari esa keyingi urinishda bir zumda natija ko'radi.
+FETCH_DEADLINE = 20  # soniya
+
+# Bir xil ID uchun "saytdan olish + omborga yozish" bitta umumiy fon vazifada
+_inflight: dict[str, asyncio.Task] = {}
 
 redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
 
@@ -77,12 +82,27 @@ async def get_result(abt_id: str) -> dict | None:
     except Exception as e:
         logging.warning(f"Redis o'qish xatosi: {e}")
 
+    task = _inflight.get(abt_id)
+    if task is None:
+        task = asyncio.create_task(_fetch_and_store(abt_id))
+        _inflight[abt_id] = task
+        task.add_done_callback(lambda _t, _id=abt_id: _inflight.pop(_id, None))
     try:
-        info = await asyncio.wait_for(fetch_details(abt_id), timeout=FETCH_DEADLINE)
+        # shield — bitta userning deadline'i umumiy fon vazifani (va u orqali
+        # boshqa userlarning kutishini) bekor qilmasligi uchun. Har kim faqat
+        # O'ZINING kutishini to'xtatadi.
+        return await asyncio.wait_for(asyncio.shield(task), timeout=FETCH_DEADLINE)
     except asyncio.TimeoutError:
-        # Navbat juda uzun — userni cheksiz kuttirmaymiz. Saytga ketgan
-        # fon so'rov bekor bo'lmaydi: tugagach natija omborga yoziladi.
-        raise MandatUnavailable("kutish muddati tugadi (navbat uzun)")
+        raise MandatUnavailable(f"javob {FETCH_DEADLINE}s ichida kelmadi")
+
+
+async def _fetch_and_store(abt_id: str) -> dict | None:
+    """Saytdan olish + natijani saqlash — bitta ajralmas fon vazifa.
+
+    Kutuvchilarning hammasi deadline bilan ketib qolsa ham bu vazifa oxirigacha
+    ishlaydi va topilgan yakuniy natijani omborga yozadi.
+    """
+    info = await fetch_details(abt_id)
     if info is None:
         return None
 

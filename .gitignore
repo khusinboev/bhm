@@ -34,6 +34,9 @@ havola.txt
 failed_users.txt
 test_failed_copy.txt
 test_failed_forward.txt
+
+# Tarqatish worker jurnali
+tarqat.log
 # Python packaging
 *.egg
 

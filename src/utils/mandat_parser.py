@@ -79,53 +79,61 @@ def _norm(text: str) -> str:
     return text.replace("’", "'").replace("ʼ", "'").replace("`", "'").replace("‘", "'")
 
 
+def _release_slot(_task: asyncio.Task, abt_id: str) -> None:
+    """Task tugaganda (natija/xato/bekor) navbat hisoblagichini bo'shatadi."""
+    global _waiting
+    _waiting -= 1
+    _inflight.pop(abt_id, None)
+
+
 async def fetch_details(abt_id: str) -> dict | None:
     """ID bo'yicha abituriyent sahifasini olib, ma'lumotlar lug'atini qaytaradi.
 
     Bir xil ID bo'yicha parallel chaqiruvlar saytga bitta so'rovga birlashtiriladi.
+    Kutuvchilardan biri bekor qilinsa (masalan, o'z deadline'i tugasa) umumiy
+    so'rov to'xtamaydi — shield boshqa kutuvchilarni va yakuniy natijani himoya qiladi.
 
     None — bunday ID saytda topilmadi.
     MandatUnavailable — sayt javob bermadi.
     MandatBusy — navbat to'la, so'rov qabul qilinmadi.
     """
+    global _waiting
     task = _inflight.get(abt_id)
     if task is None:
         if _waiting >= MAX_QUEUE:
             raise MandatBusy()
+        # MUHIM: tekshiruv va oshirish orasida await yo'q — bir zumda kelgan
+        # portlashda ham chegara aniq ishlaydi (poyga sharoiti yo'q)
+        _waiting += 1
         task = asyncio.create_task(_fetch_details(abt_id))
         _inflight[abt_id] = task
-        task.add_done_callback(lambda _t, _id=abt_id: _inflight.pop(_id, None))
-    return await task
+        task.add_done_callback(lambda _t, _id=abt_id: _release_slot(_t, _id))
+    return await asyncio.shield(task)
 
 
 async def _fetch_details(abt_id: str) -> dict | None:
-    global _waiting
     session = await _get_session()
     last_err: Exception | None = None
-    _waiting += 1
-    try:
-        for attempt in range(1, RETRY_COUNT + 1):
-            try:
-                async with semaphore:
-                    async with session.get(
-                        SEARCH_URL,
-                        params={"entrantid": abt_id, "lang": "uz"},
-                        allow_redirects=True,
-                    ) as resp:
-                        final_url = str(resp.url)
-                        html = await resp.text()
-                if "/Bakalavr/Details" not in final_url:
-                    # Redirect bo'lmadi — bunday ID mavjud emas
-                    return None
-                # HTML tahlili CPU ishi — event loop'ni bloklamasligi uchun alohida thread'da
-                return await asyncio.to_thread(parse_details, html, abt_id)
-            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                last_err = e
-                logging.warning(f"mandat.uzbmb.uz so'rovi muvaffaqiyatsiz ({attempt}-urinish, ID={abt_id}): {e}")
-                if attempt < RETRY_COUNT:
-                    await asyncio.sleep(2)
-    finally:
-        _waiting -= 1
+    for attempt in range(1, RETRY_COUNT + 1):
+        try:
+            async with semaphore:
+                async with session.get(
+                    SEARCH_URL,
+                    params={"entrantid": abt_id, "lang": "uz"},
+                    allow_redirects=True,
+                ) as resp:
+                    final_url = str(resp.url)
+                    html = await resp.text()
+            if "/Bakalavr/Details" not in final_url:
+                # Redirect bo'lmadi — bunday ID mavjud emas
+                return None
+            # HTML tahlili CPU ishi — event loop'ni bloklamasligi uchun alohida thread'da
+            return await asyncio.to_thread(parse_details, html, abt_id)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            last_err = e
+            logging.warning(f"mandat.uzbmb.uz so'rovi muvaffaqiyatsiz ({attempt}-urinish, ID={abt_id}): {e}")
+            if attempt < RETRY_COUNT:
+                await asyncio.sleep(2)
     raise MandatUnavailable(str(last_err))
 
 
