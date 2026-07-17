@@ -5,7 +5,7 @@ from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, User
 
-from config import sql, db, bot, ADMIN_ID
+from config import sql, db, bot, ADMIN_ID, REDIS_DB
 from src.utils import channels_cache
 
 # A'zolik keshi: faqat musbat natija keshlanadi, shunda "Qo'shildim" bosilganda
@@ -14,7 +14,7 @@ from src.utils import channels_cache
 # har restartdan keyin butun auditoriyaga getChatMember bo'roni bo'lmaydi.
 _MEMBER_TTL = 120
 _MEMBER_PREFIX = "mandat:member:"
-_member_redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
+_member_redis = aioredis.Redis(host="localhost", port=6379, db=REDIS_DB, decode_responses=True)
 
 
 async def _is_member_cached(user_id: int) -> bool:

@@ -10,10 +10,11 @@ import logging
 
 import redis.asyncio as aioredis
 
+from config import REDIS_DB
 from src.db import database
 
 KEY = "mandat:known_users"
-redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
+redis = aioredis.Redis(host="localhost", port=6379, db=REDIS_DB, decode_responses=True)
 
 
 async def preload() -> int:

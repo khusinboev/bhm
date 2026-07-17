@@ -26,7 +26,7 @@ import redis.asyncio as aioredis
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from config import BOT_TOKEN, ADMIN_ID  # noqa: E402  (.env shu yerda o'qiladi)
+from config import BOT_TOKEN, ADMIN_ID, REDIS_DB  # noqa: E402  (.env shu yerda o'qiladi)
 from src.db import database  # noqa: E402
 from src.utils import result_service  # noqa: E402
 from src.utils.mandat_parser import MandatBusy, MandatUnavailable, close_session  # noqa: E402
@@ -45,7 +45,7 @@ FETCH_RETRIES = 3       # sayt band/javobsiz bo'lsa urinishlar
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
+redis = aioredis.Redis(host="localhost", port=6379, db=REDIS_DB, decode_responses=True)
 
 _stop_requested = False
 

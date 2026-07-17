@@ -15,6 +15,7 @@ import logging
 
 import redis.asyncio as aioredis
 
+from config import REDIS_DB
 from src.db import database
 from src.utils.mandat_parser import fetch_details, MandatUnavailable
 
@@ -37,7 +38,7 @@ FETCH_DEADLINE = 20  # soniya
 # Bir xil ID uchun "saytdan olish + omborga yozish" bitta umumiy fon vazifada
 _inflight: dict[str, asyncio.Task] = {}
 
-redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
+redis = aioredis.Redis(host="localhost", port=6379, db=REDIS_DB, decode_responses=True)
 
 
 def is_final(info: dict) -> bool:

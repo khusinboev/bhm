@@ -32,6 +32,10 @@ sql = db.cursor()
 
 ADMIN_ID = ADMINS = [int(admin_id) for admin_id in os.getenv("ADMINS_ID").split(",")]
 
+# Bir nechta bot nusxasi (klon) bitta Redis serverida ishlaganda bir-birining
+# kalitlariga aralashmasligi uchun: har nusxa o'z REDIS_DB raqamiga ega bo'ladi
+REDIS_DB = int(os.getenv("REDIS_DB", "1"))
+
 # === Webhook rejimi (USE_WEBHOOK=1 bo'lsa polling o'rniga ishlaydi) ===
 # Yo'l va secret standart holda token hash'idan olinadi — .env'da faqat
 # USE_WEBHOOK=1 deyish kifoya; xohlasa alohida override qilish mumkin.
@@ -47,6 +51,5 @@ WEBHOOK_SSL_KEY = os.getenv("WEBHOOK_SSL_KEY", "/etc/letsencrypt/live/talim24.uz
 
 bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(link_preview_is_disabled=True))
 # RedisStorage: bot qayta ishga tushganda foydalanuvchi holatlari (FSM) yo'qolmaydi.
-# db=1 — boshqa loyihalar bilan kalit to'qnashuvining oldini olish uchun alohida baza
-storage = RedisStorage.from_url("redis://localhost:6379/1", state_ttl=86400, data_ttl=86400)
+storage = RedisStorage.from_url(f"redis://localhost:6379/{REDIS_DB}", state_ttl=86400, data_ttl=86400)
 dp = Dispatcher(storage=storage)

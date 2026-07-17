@@ -21,7 +21,7 @@ from aiogram.enums import ChatType
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from config import ADMIN_ID
+from config import ADMIN_ID, REDIS_DB
 
 tarqat_router = Router()
 
@@ -33,7 +33,7 @@ LOCK_KEY = "tarqat:lock"
 STATUS_KEY = "tarqat:status"
 STOP_KEY = "tarqat:stop"
 
-redis = aioredis.Redis(host="localhost", port=6379, db=1, decode_responses=True)
+redis = aioredis.Redis(host="localhost", port=6379, db=REDIS_DB, decode_responses=True)
 
 
 def _holat_text(raw: str | None) -> str:
