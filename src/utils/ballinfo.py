@@ -19,9 +19,12 @@ hisoblagichlar bilan (ikkala bo'lim bir-birini navbatda siqib qo'ymaydi):
 """
 
 import asyncio
+import io
 import json
 import logging
+import os
 from datetime import datetime
+from typing import Any
 
 import aiohttp
 import redis.asyncio as aioredis
@@ -49,6 +52,13 @@ NOTFOUND_TTL = 10 * 60
 NEG_PREFIX = "mandat:bi:neg:"
 
 PER_PAGE = 10  # bir sahifada ko'rsatiladigan yo'nalishlar soni
+
+FILTER_KEYS = ("region", "university", "faculty")
+FILTER_LABELS = {
+    "region": "Hudud",
+    "university": "OTM",
+    "faculty": "Yo'nalish",
+}
 
 redis = aioredis.Redis(host="localhost", port=6379, db=REDIS_DB, decode_responses=True)
 
@@ -245,23 +255,119 @@ def _row(i: int, item: dict, extra: str = "") -> str:
             f"o'tish: <b>{_ballk(item):.1f}</b>{extra}")
 
 
-def format_page(abt_id: str, data: dict, page: int = 1,
-                stale: bool = False) -> tuple[str, int]:
-    """Bitta sahifa matni + jami sahifalar soni.
+def _id_as_str(val: Any) -> str:
+    if val is None:
+        return "0"
+    return str(val)
 
-    Reja: har sahifada sarlavha (FIO/ball/statistika) + PER_PAGE ta
-    balingiz YETADIGAN yo'nalish, o'tish balli yuqoridan pastga.
-    Yetadigani bo'lmasa — eng yaqin 10 tasi, sahifalashsiz (1 sahifa).
-    """
+
+def _normalize_filters(data: dict, filters: dict[str, str] | None) -> dict[str, str]:
+    details = data.get("details") or []
+    src = filters or {}
+    normalized = {
+        "region": _id_as_str(src.get("region", "0")),
+        "university": _id_as_str(src.get("university", "0")),
+        "faculty": _id_as_str(src.get("faculty", "0")),
+    }
+
+    region_ids = {_id_as_str(d.get("regionId")) for d in details if d.get("regionId") is not None}
+    if normalized["region"] != "0" and normalized["region"] not in region_ids:
+        normalized["region"] = "0"
+        normalized["university"] = "0"
+        normalized["faculty"] = "0"
+
+    uni_scope = [d for d in details if normalized["region"] == "0"
+                 or _id_as_str(d.get("regionId")) == normalized["region"]]
+    uni_ids = {_id_as_str(d.get("universityId")) for d in uni_scope if d.get("universityId") is not None}
+    if normalized["university"] != "0" and normalized["university"] not in uni_ids:
+        normalized["university"] = "0"
+        normalized["faculty"] = "0"
+
+    fac_scope = [d for d in uni_scope if normalized["university"] == "0"
+                 or _id_as_str(d.get("universityId")) == normalized["university"]]
+    fac_ids = {_id_as_str(d.get("facultyId")) for d in fac_scope if d.get("facultyId") is not None}
+    if normalized["faculty"] != "0" and normalized["faculty"] not in fac_ids:
+        normalized["faculty"] = "0"
+
+    return normalized
+
+
+def _apply_filters(details: list[dict], filters: dict[str, str]) -> list[dict]:
+    region = filters["region"]
+    uni = filters["university"]
+    fac = filters["faculty"]
+    return [
+        d for d in details
+        if (region == "0" or _id_as_str(d.get("regionId")) == region)
+        and (uni == "0" or _id_as_str(d.get("universityId")) == uni)
+        and (fac == "0" or _id_as_str(d.get("facultyId")) == fac)
+    ]
+
+
+def get_filter_options(data: dict, filters: dict[str, str] | None,
+                       kind: str) -> tuple[list[tuple[str, str]], dict[str, str]]:
+    """Saytdagi mantiqqa yaqin kaskadli variantlar: Hudud -> OTM -> Yo'nalish."""
+    if kind not in FILTER_KEYS:
+        return [], _normalize_filters(data, filters)
+
+    details = data.get("details") or []
+    normalized = _normalize_filters(data, filters)
+    options: list[tuple[str, str]] = [("0", "Barchasi")]
+
+    if kind == "region":
+        rows = {( _id_as_str(d.get("regionId")), (d.get("regionName") or "Noma'lum hudud"))
+                for d in details if d.get("regionId") is not None}
+        options.extend(sorted(rows, key=lambda x: x[1]))
+        return options, normalized
+
+    region_scope = [d for d in details if normalized["region"] == "0"
+                    or _id_as_str(d.get("regionId")) == normalized["region"]]
+    if kind == "university":
+        rows = {( _id_as_str(d.get("universityId")),
+                  (d.get("universityName") or "Noma'lum OTM"))
+                for d in region_scope if d.get("universityId") is not None}
+        options.extend(sorted(rows, key=lambda x: x[1]))
+        return options, normalized
+
+    uni_scope = [d for d in region_scope if normalized["university"] == "0"
+                 or _id_as_str(d.get("universityId")) == normalized["university"]]
+    rows = {( _id_as_str(d.get("facultyId")),
+              (d.get("facultyName") or "Noma'lum yo'nalish"))
+            for d in uni_scope if d.get("facultyId") is not None}
+    options.extend(sorted(rows, key=lambda x: x[1]))
+    return options, normalized
+
+
+def filter_caption(data: dict, filters: dict[str, str] | None) -> tuple[str, dict[str, str]]:
+    normalized = _normalize_filters(data, filters)
+    parts = []
+    for kind in FILTER_KEYS:
+        opts, normalized = get_filter_options(data, normalized, kind)
+        val = normalized[kind]
+        if val == "0":
+            parts.append(f"{FILTER_LABELS[kind]}: barchasi")
+            continue
+        name = next((label for value, label in opts if value == val), "tanlanmagan")
+        parts.append(f"{FILTER_LABELS[kind]}: {name}")
+    return " | ".join(parts), normalized
+
+
+def format_page(abt_id: str, data: dict, page: int = 1,
+                stale: bool = False,
+                filters: dict[str, str] | None = None) -> tuple[str, int, dict[str, str]]:
+    """Bitta sahifa matni + jami sahifalar soni + normalizatsiya qilingan filtrlar."""
     fio = data.get("fullName") or ""
-    ball = data.get("result") or 0
+    ball = float(data.get("result") or 0)
     edlang = data.get("edlang") or ""
     details = data.get("details") or []
 
-    passing = sorted((d for d in details if _ballk(d) <= ball), key=_ballk, reverse=True)
-    failing = sorted((d for d in details if _ballk(d) > ball), key=_ballk)
+    caption, normalized = filter_caption(data, filters)
+    filtered = _apply_filters(details, normalized)
+    passing = sorted((d for d in filtered if _ballk(d) <= ball), key=_ballk, reverse=True)
+    failing = sorted((d for d in filtered if _ballk(d) > ball), key=_ballk)
+    ordered = passing + failing
 
-    total_pages = max(1, -(-len(passing) // PER_PAGE)) if passing else 1
+    total_pages = max(1, -(-len(ordered) // PER_PAGE)) if ordered else 1
     page = min(max(1, page), total_pages)
 
     lines = [
@@ -271,28 +377,98 @@ def format_page(abt_id: str, data: dict, page: int = 1,
         f"🆔 <b>{abt_id}</b> | 🗣 {edlang}",
         f"🎓 Umumiy ball: <b>{ball}</b>",
         "",
-        f"📚 Fan majmuangizdagi yo'nalishlar: <b>{len(details)}</b> ta",
-        f"✅ Balingiz yetadi: <b>{len(passing)}</b> ta",
+        f"📚 Jami yo'nalishlar: <b>{len(details)}</b> ta",
+        f"🔎 Filtrlangan yo'nalishlar: <b>{len(filtered)}</b> ta",
+        f"✅ Balingiz yetadi: <b>{len(passing)}</b> ta | ❌ Yetmaydi: <b>{len(failing)}</b> ta",
+        f"⚙️ <i>{caption}</i>",
         "",
     ]
 
-    if passing:
-        lines.append(f"🏆 <b>Balingiz yetadigan yo'nalishlar</b> "
-                     f"(o'tish balli yuqorilari birinchi) — {page}/{total_pages}-sahifa:")
+    if ordered:
+        lines.append(f"📄 <b>Natijalar</b> — {page}/{total_pages}-sahifa:")
         start = (page - 1) * PER_PAGE
-        for offset, item in enumerate(passing[start:start + PER_PAGE]):
-            lines.append(_row(start + offset + 1, item))
+        for offset, item in enumerate(ordered[start:start + PER_PAGE], start=1):
+            row_no = start + offset
+            b = _ballk(item)
+            if b <= ball:
+                extra = " | ✅ yetadi"
+            else:
+                extra = f" | ❌ yetmaydi (farq: {b - ball:.1f})"
+            lines.append(_row(row_no, item, extra=extra))
     else:
-        lines.append("😕 Hozircha balingiz yetadigan yo'nalish yo'q.")
-        if failing:
-            lines.append("\n📈 <b>Balingizga eng yaqin yo'nalishlar:</b>")
-            for i, item in enumerate(failing[:10], 1):
-                farq = _ballk(item) - ball
-                lines.append(_row(i, item, extra=f" (farq: {farq:.1f})"))
+        lines.append("😕 Tanlangan filtrlarga mos yo'nalish topilmadi.")
 
     lines.append("")
     if stale:
         lines.append("⚠️ <i>Sayt hozir javob bermayapti — oldinroq olingan ma'lumot ko'rsatildi.</i>")
     lines.append(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append("<b>✅ Ma'lumotlar @mandat_uzbmbbot tomonidan olindi</b>")
-    return "\n".join(lines), total_pages
+    return "\n".join(lines), total_pages, normalized
+
+
+def build_pdf_bytes(abt_id: str, data: dict) -> bytes:
+    """Filtrlarsiz barcha yo'nalishlar bo'yicha PDF qaytaradi."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+
+    fio = data.get("fullName") or ""
+    edlang = data.get("edlang") or ""
+    ball = float(data.get("result") or 0)
+    details = data.get("details") or []
+
+    passing = sorted((d for d in details if _ballk(d) <= ball), key=_ballk, reverse=True)
+    failing = sorted((d for d in details if _ballk(d) > ball), key=_ballk)
+    ordered = passing + failing
+
+    buf = io.BytesIO()
+    pdf = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    left = 36
+    top = h - 40
+    y = top
+    line_h = 14
+
+    font_name = "Helvetica"
+    dejavu_candidates = (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    )
+    for path in dejavu_candidates:
+        if os.path.exists(path):
+            if "DejaVuSans" not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont("DejaVuSans", path))
+            font_name = "DejaVuSans"
+            break
+
+    def draw_line(text: str, bold: bool = False) -> None:
+        nonlocal y
+        if y < 60:
+            pdf.showPage()
+            y = top
+        pdf.setFont(font_name, 11 if bold else 10)
+        pdf.drawString(left, y, text[:135])
+        y -= line_h
+
+    draw_line("Balingizga mos yo'nalishlar (to'liq ro'yxat)", bold=True)
+    draw_line(f"FIO: {fio}")
+    draw_line(f"ID: {abt_id} | Til: {edlang}")
+    draw_line(f"Umumiy ball: {ball}")
+    draw_line(f"Jami yo'nalishlar: {len(details)} | Yetadi: {len(passing)} | Yetmaydi: {len(failing)}")
+    draw_line("")
+
+    for i, item in enumerate(ordered, start=1):
+        b = _ballk(item)
+        status = "YETADI" if b <= ball else f"YETMAYDI (+{(b - ball):.1f})"
+        draw_line(f"{i}. {item.get('universityName') or '-'}", bold=True)
+        draw_line(f"   Yo'nalish: {item.get('facultyName') or '-'}")
+        draw_line(f"   Hudud: {item.get('regionName') or '-'} | Til: {item.get('educLanguage') or '-'}")
+        draw_line(f"   O'tish bali: {b:.1f} | Holat: {status}")
+        draw_line("")
+
+    draw_line("Ma'lumotlar @mandat_uzbmbbot tomonidan olindi")
+    draw_line(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    pdf.save()
+    return buf.getvalue()
