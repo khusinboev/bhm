@@ -43,12 +43,12 @@ _inflight: dict[str, asyncio.Task] = {}
 
 FETCH_DEADLINE = 20   # har chaqiruvchining kutish chegarasi (soniya)
 FRESH_TTL = 6 * 3600  # saqlangan snapshot shu muddatgacha "yangi" hisoblanadi
-TEXT_TTL = 2 * 3600   # tayyor xabar matni Redis keshi
 NEG_TTL = 30 * 60     # salbiy holatlar (below/absent/banned) keshi
 NOTFOUND_TTL = 10 * 60
 
-TEXT_PREFIX = "mandat:bi:text:"
 NEG_PREFIX = "mandat:bi:neg:"
+
+PER_PAGE = 10  # bir sahifada ko'rsatiladigan yo'nalishlar soni
 
 redis = aioredis.Redis(host="localhost", port=6379, db=REDIS_DB, decode_responses=True)
 
@@ -98,10 +98,11 @@ async def _fetch(abt_id: str) -> dict:
     raise MandatUnavailable(str(last_err))
 
 
-async def _fetch_and_store(abt_id: str) -> str:
-    """Saytdan olish + saqlash + formatlash — bitta ajralmas fon vazifa.
+async def _fetch_and_store(abt_id: str) -> dict:
+    """Saytdan olish + saqlash — bitta ajralmas fon vazifa.
 
-    Qaytaradi: userga yuboriladigan tayyor matn.
+    Qaytaradi: {"text": str}  — salbiy holat (tayyor xabar), yoki
+               {"data": dict} — sahifalab ko'rsatiladigan to'liq ma'lumot.
     """
     raw = await _fetch(abt_id)
 
@@ -110,7 +111,7 @@ async def _fetch_and_store(abt_id: str) -> str:
                 "<i>Mandat saytidagi uzilishlar sababli ham topilmayotgan bo'lishi mumkin — "
                 "birozdan so'ng qayta urinib ko'ring.</i>")
         await _cache_set(NEG_PREFIX + abt_id, text, NOTFOUND_TTL)
-        return text
+        return {"text": text}
 
     data = raw.get("data") or {}
     status = raw.get("status") or ("below" if raw.get("belowThreshold") else "ok")
@@ -119,7 +120,7 @@ async def _fetch_and_store(abt_id: str) -> str:
     if status != "ok" or not details:
         text = _format_negative(abt_id, data, status)
         await _cache_set(NEG_PREFIX + abt_id, text, NEG_TTL)
-        return text
+        return {"text": text}
 
     # Muvaffaqiyatli natija — Postgres'ga snapshot yoziladi
     try:
@@ -136,9 +137,7 @@ async def _fetch_and_store(abt_id: str) -> str:
     except Exception:
         logging.exception(f"Yo'nalishlar snapshotini saqlab bo'lmadi (ID={abt_id})")
 
-    text = format_report(abt_id, data)
-    await _cache_set(TEXT_PREFIX + abt_id, text, TEXT_TTL)
-    return text
+    return {"data": data}
 
 
 async def _cache_set(key: str, value: str, ttl: int) -> None:
@@ -156,20 +155,19 @@ async def _cache_get(key: str) -> str | None:
         return None
 
 
-async def get_report(abt_id: str) -> str:
-    """Userga yuboriladigan tayyor matn. Tartib: Redis -> Postgres(yangi) -> sayt.
+async def get_data(abt_id: str) -> dict:
+    """Sahifalash uchun ma'lumot. Tartib: Redis(neg) -> Postgres(yangi) -> sayt.
 
+    Qaytaradi: {"text": str} — tayyor xabar (salbiy holat), yoki
+               {"data": dict, "stale": bool} — sahifalanadigan ma'lumot.
     MandatBusy — navbat to'la; MandatUnavailable — sayt javob bermadi
     (lekin eskirgan snapshot bo'lsa, xato o'rniga o'sha qaytariladi).
     """
     global _waiting
 
-    cached = await _cache_get(TEXT_PREFIX + abt_id)
-    if cached:
-        return cached
     cached = await _cache_get(NEG_PREFIX + abt_id)
     if cached:
-        return cached
+        return {"text": cached}
 
     # Postgres snapshot — yangi bo'lsa shundan foydalanamiz
     stale_row = None
@@ -182,9 +180,7 @@ async def get_report(abt_id: str) -> str:
         if row:
             data = row[0] if isinstance(row[0], dict) else json.loads(row[0])
             if row[1]:  # hali yangi
-                text = format_report(abt_id, data)
-                await _cache_set(TEXT_PREFIX + abt_id, text, TEXT_TTL)
-                return text
+                return {"data": data, "stale": False}
             stale_row = data  # eskirgan — yangilashga urinamiz, bo'lmasa shu qoladi
     except Exception:
         logging.exception(f"Yo'nalishlar snapshotini o'qib bo'lmadi (ID={abt_id})")
@@ -193,7 +189,7 @@ async def get_report(abt_id: str) -> str:
     if task is None:
         if _waiting >= MAX_QUEUE:
             if stale_row is not None:
-                return format_report(abt_id, stale_row, stale=True)
+                return {"data": stale_row, "stale": True}
             raise MandatBusy()
         _waiting += 1  # tekshiruv bilan bitta sinxron blokda — poyga yo'q
         task = asyncio.create_task(_fetch_and_store(abt_id))
@@ -201,17 +197,18 @@ async def get_report(abt_id: str) -> str:
         task.add_done_callback(lambda _t, _id=abt_id: _release_slot(_t, _id))
 
     try:
-        return await asyncio.wait_for(asyncio.shield(task), timeout=FETCH_DEADLINE)
+        result = await asyncio.wait_for(asyncio.shield(task), timeout=FETCH_DEADLINE)
+        if "data" in result:
+            return {"data": result["data"], "stale": False}
+        return result
     except (asyncio.TimeoutError, MandatUnavailable):
         if stale_row is not None:
             # Sayt hozir bermadi — eskiroq snapshot baribir foydali
-            return format_report(abt_id, stale_row, stale=True)
+            return {"data": stale_row, "stale": True}
         raise MandatUnavailable(f"javob {FETCH_DEADLINE}s ichida kelmadi")
 
 
-# ============ Ko'rsatish (formatlash) ============
-
-MAX_LEN = 3700  # xabar tanasi uchun xavfsiz chegara (4096 dan pastroq)
+# ============ Ko'rsatish (formatlash, sahifalab) ============
 
 
 def _format_negative(abt_id: str, data: dict, status: str) -> str:
@@ -234,27 +231,38 @@ def _format_negative(abt_id: str, data: dict, status: str) -> str:
     return head + body + tail
 
 
-def format_report(abt_id: str, data: dict, stale: bool = False) -> str:
-    """557 tagacha yo'nalishni bitta o'qiladigan xabarga jamlaydi.
+def _ballk(item) -> float:
+    try:
+        return float(item.get("ballK") or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
-    Reja: sarlavha (FIO/ball/statistika) -> balingiz YETADIGAN yo'nalishlar,
-    o'tish balli yuqoridan pastga (eng nufuzli-yu yetadiganlari birinchi),
-    xabar sig'imiga qarab dinamik kesiladi. Yetadigani bo'lmasa — eng yaqin
-    (farqi kichik) 10 tasi ko'rsatiladi.
+
+def _row(i: int, item: dict, extra: str = "") -> str:
+    return (f"{i}. <b>{item.get('universityName')}</b>\n"
+            f"    {item.get('facultyName')}\n"
+            f"    📍 {item.get('regionName')} | {item.get('educLanguage')} | "
+            f"o'tish: <b>{_ballk(item):.1f}</b>{extra}")
+
+
+def format_page(abt_id: str, data: dict, page: int = 1,
+                stale: bool = False) -> tuple[str, int]:
+    """Bitta sahifa matni + jami sahifalar soni.
+
+    Reja: har sahifada sarlavha (FIO/ball/statistika) + PER_PAGE ta
+    balingiz YETADIGAN yo'nalish, o'tish balli yuqoridan pastga.
+    Yetadigani bo'lmasa — eng yaqin 10 tasi, sahifalashsiz (1 sahifa).
     """
     fio = data.get("fullName") or ""
     ball = data.get("result") or 0
     edlang = data.get("edlang") or ""
     details = data.get("details") or []
 
-    def _ballk(item) -> float:
-        try:
-            return float(item.get("ballK") or 0)
-        except (TypeError, ValueError):
-            return 0.0
-
     passing = sorted((d for d in details if _ballk(d) <= ball), key=_ballk, reverse=True)
     failing = sorted((d for d in details if _ballk(d) > ball), key=_ballk)
+
+    total_pages = max(1, -(-len(passing) // PER_PAGE)) if passing else 1
+    page = min(max(1, page), total_pages)
 
     lines = [
         "🎯 <b>Balingizga mos yo'nalishlar</b>",
@@ -268,25 +276,12 @@ def format_report(abt_id: str, data: dict, stale: bool = False) -> str:
         "",
     ]
 
-    def _row(i: int, item: dict, extra: str = "") -> str:
-        return (f"{i}. <b>{item.get('universityName')}</b>\n"
-                f"    {item.get('facultyName')}\n"
-                f"    📍 {item.get('regionName')} | {item.get('educLanguage')} | "
-                f"o'tish: <b>{_ballk(item):.1f}</b>{extra}")
-
     if passing:
-        lines.append("🏆 <b>Balingiz yetadigan yo'nalishlar</b> (o'tish balli yuqorilari birinchi):")
-        body_len = sum(len(x) + 1 for x in lines)
-        shown = 0
-        for item in passing:
-            row = _row(shown + 1, item)
-            if body_len + len(row) > MAX_LEN:
-                break
-            lines.append(row)
-            body_len += len(row) + 1
-            shown += 1
-        if shown < len(passing):
-            lines.append(f"\n…va yana <b>{len(passing) - shown}</b> ta yo'nalishga balingiz yetadi.")
+        lines.append(f"🏆 <b>Balingiz yetadigan yo'nalishlar</b> "
+                     f"(o'tish balli yuqorilari birinchi) — {page}/{total_pages}-sahifa:")
+        start = (page - 1) * PER_PAGE
+        for offset, item in enumerate(passing[start:start + PER_PAGE]):
+            lines.append(_row(start + offset + 1, item))
     else:
         lines.append("😕 Hozircha balingiz yetadigan yo'nalish yo'q.")
         if failing:
@@ -298,8 +293,6 @@ def format_report(abt_id: str, data: dict, stale: bool = False) -> str:
     lines.append("")
     if stale:
         lines.append("⚠️ <i>Sayt hozir javob bermayapti — oldinroq olingan ma'lumot ko'rsatildi.</i>")
-    lines.append("ℹ️ To'liq ro'yxat: mandat.uzbmb.uz saytida")
     lines.append(f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append("")
     lines.append("<b>✅ Ma'lumotlar @mandat_uzbmbbot tomonidan olindi</b>")
-    return "\n".join(lines)
+    return "\n".join(lines), total_pages
