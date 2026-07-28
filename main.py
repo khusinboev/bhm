@@ -17,7 +17,7 @@ from config import (
 )
 from src.db import database
 from src.db.init_db import create_all_base
-from src.utils import known_users, mandat_parser
+from src.utils import ballinfo, known_users, mandat_parser
 from src.handlers.admins.add_admin import add_router
 from src.handlers.admins.admin import admin_router
 from src.handlers.admins.messages import msg_router
@@ -28,6 +28,7 @@ from src.handlers.others.other import other_router
 # from src.handlers.users.buyurtma import buyurtma_router
 from src.handlers.users.data import data_router
 from src.handlers.users.users import user_router
+from src.handlers.users.yonalish import yonalish_router
 from src.middlewares.middleware import RegisterUserMiddleware
 
 
@@ -52,6 +53,7 @@ async def on_shutdown() -> None:
     # yopilgan pool/sessiyaga urilib "pool is closed" xatolari chiqaradi
     await asyncio.sleep(3)
     await mandat_parser.close_session()
+    await ballinfo.close_session()
     await database.close_pool()
 
 
@@ -73,6 +75,7 @@ async def main():
     dp.include_router(user_router)
     # dp.include_router(buyurtma_router)
     dp.include_router(data_router)
+    dp.include_router(yonalish_router)
 
     #for other
     dp.include_router(group_router)

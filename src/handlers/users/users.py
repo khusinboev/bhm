@@ -219,8 +219,9 @@ async def handle_id(message: Message, state: FSMContext):
     await message.answer(text, parse_mode="html")
 
 
-@user_router.message(MainState.natija2, F.text != "📊 Natija", F.chat.type == ChatType.PRIVATE)
+@user_router.message(MainState.natija2, F.text != "📊 Natija",
+                     F.text != "🎯 Balingizga mos yo'nalish", F.chat.type == ChatType.PRIVATE)
 async def invalid_input(message: Message):
-    # "📊 Natija" bu yerda ushlanmaydi — data_router'dagi handleriga o'tib ketadi
+    # Boshqa bo'lim tugmalari bu yerda ushlanmaydi — o'z handlerlariga o'tib ketadi
     await message.answer("✋ Iltimos, faqat 7 xonali ID raqamini kiriting (faqat raqamlar).",
                          reply_markup=await UserPanels.main())

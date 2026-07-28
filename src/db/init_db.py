@@ -67,4 +67,15 @@ async def create_all_base():
     sql.execute("ALTER TABLE bhm ADD COLUMN IF NOT EXISTS notified_at TIMESTAMP;")
     db.commit()
 
+    # "Balingizga mos yo'nalish" snapshotlari: o'tish ballari o'zgarib turadi,
+    # shu sababli found_at bo'yicha eskirganda yangilanadi
+    sql.execute("""CREATE TABLE IF NOT EXISTS public.yonalishlar (
+        abt_id VARCHAR(20) PRIMARY KEY,
+        fio TEXT,
+        ball NUMERIC,
+        result_json JSONB NOT NULL,
+        found_at TIMESTAMP DEFAULT NOW()
+    );""")
+    db.commit()
+
 
