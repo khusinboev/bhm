@@ -180,7 +180,7 @@ async def yonalish_bot_view(message: Message, state: FSMContext):
 
 
 @yonalish_router.message(YonalishState.kutish, F.text.regexp(r"^\d{7}$"), F.chat.type == ChatType.PRIVATE)
-async def handle_yonalish_id(msg: Message):
+async def handle_yonalish_id(msg: Message, state: FSMContext):
     user_id = msg.from_user.id
     if not rate_limit.allow(user_id):
         await msg.answer("⏳ Juda tez-tez so'rov yubordingiz. Iltimos, bir necha soniya kutib qayta urining.")
