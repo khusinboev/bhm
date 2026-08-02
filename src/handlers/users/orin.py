@@ -40,7 +40,7 @@ def _markup(abt_id: str, detailed: bool) -> InlineKeyboardMarkup:
         toggle_btn = InlineKeyboardButton(text="📊 Batafsil", callback_data=f"or:det:{abt_id}")
 
     link_btn = InlineKeyboardButton(
-        text="➡️ Ballingiz yetadigan yo'nalishlarni aniqlang ↗️",
+        text="➡️ Ballingiz yetadigan yo'nalishlarni aniqlang",
         url="http://t.me/mandatjavobbot?start=ad",
     )
 
