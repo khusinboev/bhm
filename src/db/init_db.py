@@ -78,4 +78,33 @@ async def create_all_base():
     );""")
     db.commit()
 
+    # "O'rin aniqlash": abituriyentning reytingdagi o'rni (ID bo'yicha snapshot)
+    sql.execute("""CREATE TABLE IF NOT EXISTS public.orinlar (
+        abt_id VARCHAR(20) PRIMARY KEY,
+        fio TEXT,
+        ball NUMERIC,
+        orin INT,
+        s4subject TEXT,
+        s5subject TEXT,
+        ed_lang_id INT,
+        result_json JSONB NOT NULL,
+        found_at TIMESTAMP DEFAULT NOW()
+    );""")
+    db.commit()
+
+    # Fan majmuasi bo'yicha agregatlar — barcha foydalanuvchilarga umumiy
+    sql.execute("""CREATE TABLE IF NOT EXISTS public.orin_stats (
+        combo_key TEXT PRIMARY KEY,
+        s4subject TEXT,
+        s5subject TEXT,
+        ed_lang_id INT,
+        jami INT,
+        max_ball_count INT,
+        below_pass_count INT,
+        ladder JSONB,
+        full_computed BOOLEAN DEFAULT FALSE,
+        computed_at TIMESTAMP DEFAULT NOW()
+    );""")
+    db.commit()
+
 
