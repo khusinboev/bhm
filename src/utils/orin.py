@@ -207,30 +207,38 @@ async def _find_total(s4: str, s5: str, lang: int) -> int:
     return lo * BULK_PAGE_SIZE + tail
 
 
-async def _count_at_least(s4: str, s5: str, lang: int,
-                          threshold: float, total: int) -> int:
-    """ball >= threshold bo'lganlar soni (ro'yxat kamayish tartibida)."""
+async def _count_where(s4: str, s5: str, lang: int, pred, total: int) -> int:
+    """pred(ball) True bo'lganlar soni.
+
+    Ro'yxat ball bo'yicha kamayish tartibida, test topshirmaganlar (ballsiz)
+    eng oxirida — shuning uchun predikat monoton va ikkilik qidiruv ishlaydi.
+    """
     if total <= 0:
         return 0
-    last_page = -(-total // BULK_PAGE_SIZE)
     first = await _page_cards(s4, s5, lang, 1)
     await asyncio.sleep(PROBE_DELAY)
-    if not first or (first[0]["ball"] or -1) < threshold:
+    if not first or not pred(first[0]["ball"]):
         return 0
 
+    last_page = -(-total // BULK_PAGE_SIZE)
     lo, hi = 1, last_page + 1
     while lo + 1 < hi:
         mid = (lo + hi) // 2
         cards = await _page_cards(s4, s5, lang, mid)
         await asyncio.sleep(PROBE_DELAY)
-        head = cards[0]["ball"] if cards else None
-        if head is not None and head >= threshold:
+        if cards and pred(cards[0]["ball"]):
             lo = mid
         else:
             hi = mid
     cards = await _page_cards(s4, s5, lang, lo)
-    return (lo - 1) * BULK_PAGE_SIZE + sum(
-        1 for c in cards if (c["ball"] or -1) >= threshold)
+    return (lo - 1) * BULK_PAGE_SIZE + sum(1 for c in cards if pred(c["ball"]))
+
+
+async def _count_at_least(s4: str, s5: str, lang: int,
+                          threshold: float, total: int) -> int:
+    """ball >= threshold bo'lganlar soni."""
+    return await _count_where(
+        s4, s5, lang, lambda b: b is not None and b >= threshold, total)
 
 
 async def _ball_at_rank(s4: str, s5: str, lang: int, rank: int) -> float | None:
@@ -250,6 +258,8 @@ async def _compute_stats(s4: str, s5: str, lang: int, total: int | None = None) 
     if total is None:
         total = await _find_total(s4, s5, lang)
 
+    # Test topshirganlar — ballsizlar (kelmaganlar) ro'yxat oxirida turadi
+    topshirgan = await _count_where(s4, s5, lang, lambda b: b is not None, total)
     max_count = await _count_at_least(s4, s5, lang, NOMINAL_MAX, total)
     pass_count = await _count_at_least(s4, s5, lang, PASS_MARK, total)
 
@@ -263,8 +273,10 @@ async def _compute_stats(s4: str, s5: str, lang: int, total: int | None = None) 
 
     stats = {
         "jami": total,
+        "topshirgan": topshirgan,
         "max_ball_count": max_count,
-        "below_pass_count": max(0, total - pass_count),
+        # Chegaradan past — faqat test topshirganlar orasida
+        "below_pass_count": max(0, topshirgan - pass_count),
         "ladder": ladder,
         "full": True,
     }
@@ -277,11 +289,13 @@ async def _save_stats(s4: str, s5: str, lang: int, stats: dict) -> None:
         await database.execute(
             """
             INSERT INTO orin_stats (combo_key, s4subject, s5subject, ed_lang_id,
-                                    jami, max_ball_count, below_pass_count,
-                                    ladder, full_computed, computed_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                                    jami, topshirgan, max_ball_count,
+                                    below_pass_count, ladder, full_computed,
+                                    computed_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (combo_key) DO UPDATE SET
                 jami = EXCLUDED.jami,
+                topshirgan = EXCLUDED.topshirgan,
                 max_ball_count = EXCLUDED.max_ball_count,
                 below_pass_count = EXCLUDED.below_pass_count,
                 ladder = EXCLUDED.ladder,
@@ -289,7 +303,8 @@ async def _save_stats(s4: str, s5: str, lang: int, stats: dict) -> None:
                 computed_at = NOW()
             """,
             (combo_key(s4, s5, lang), s4, s5, lang, stats["jami"],
-             stats.get("max_ball_count"), stats.get("below_pass_count"),
+             stats.get("topshirgan"), stats.get("max_ball_count"),
+             stats.get("below_pass_count"),
              json.dumps(stats.get("ladder") or {}), stats.get("full", False)),
         )
     except Exception:
@@ -299,8 +314,8 @@ async def _save_stats(s4: str, s5: str, lang: int, stats: dict) -> None:
 async def _load_stats(s4: str, s5: str, lang: int) -> dict | None:
     try:
         row = await database.fetchone(
-            """SELECT jami, max_ball_count, below_pass_count, ladder, full_computed,
-                      computed_at >= NOW() - make_interval(secs => %s)
+            """SELECT jami, topshirgan, max_ball_count, below_pass_count, ladder,
+                      full_computed, computed_at >= NOW() - make_interval(secs => %s)
                FROM orin_stats WHERE combo_key = %s""",
             (STATS_FRESH_TTL, combo_key(s4, s5, lang)),
         )
@@ -309,10 +324,11 @@ async def _load_stats(s4: str, s5: str, lang: int) -> dict | None:
         return None
     if not row:
         return None
-    ladder = row[3] if isinstance(row[3], dict) else json.loads(row[3] or "{}")
+    ladder = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
     return {
-        "jami": row[0], "max_ball_count": row[1], "below_pass_count": row[2],
-        "ladder": ladder, "full": bool(row[4]), "fresh": bool(row[5]),
+        "jami": row[0], "topshirgan": row[1], "max_ball_count": row[2],
+        "below_pass_count": row[3], "ladder": ladder,
+        "full": bool(row[5]), "fresh": bool(row[6]),
     }
 
 
@@ -350,8 +366,8 @@ async def get_stats(s4: str, s5: str, lang: int) -> dict:
         if cached:
             return {**cached, "fresh": False}
         raise
-    stats = {"jami": total, "max_ball_count": None, "below_pass_count": None,
-             "ladder": {}, "full": False, "fresh": True}
+    stats = {"jami": total, "topshirgan": None, "max_ball_count": None,
+             "below_pass_count": None, "ladder": {}, "full": False, "fresh": True}
     await _save_stats(s4, s5, lang, stats)
     _schedule_full_stats(s4, s5, lang, total)
     return stats
@@ -520,6 +536,10 @@ def format_details(info: dict, stats: dict | None) -> str:
     lines.append(f"👥 Ushbu fan majmuasida jami: <b>{_num(jami)}</b> ta abituriyent")
 
     if stats.get("full"):
+        topshirgan = stats.get("topshirgan")
+        if topshirgan:
+            lines.append(f"✍️ Test topshirgan: <b>{_num(topshirgan)}</b> ta "
+                         f"(kelmagan: {_num(jami - topshirgan)})")
         lines.append("")
         lines.append(f"🥇 {_ball(NOMINAL_MAX)} va undan yuqori ball: "
                      f"<b>{_num(stats.get('max_ball_count'))}</b> ta")

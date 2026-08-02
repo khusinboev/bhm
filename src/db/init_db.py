@@ -107,4 +107,9 @@ async def create_all_base():
     );""")
     db.commit()
 
+    # Test topshirganlar soni (kelmaganlar ro'yxat oxirida ballsiz turadi)
+    sql.execute("ALTER TABLE public.orin_stats "
+                "ADD COLUMN IF NOT EXISTS topshirgan INT;")
+    db.commit()
+
 
