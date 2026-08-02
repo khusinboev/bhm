@@ -35,11 +35,16 @@ class OrinState(StatesGroup):
 
 def _markup(abt_id: str, detailed: bool) -> InlineKeyboardMarkup:
     if detailed:
-        btn = InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"or:main:{abt_id}")
+        toggle_btn = InlineKeyboardButton(text="⬅️ Orqaga", callback_data=f"or:main:{abt_id}")
     else:
-        btn = InlineKeyboardButton(text="📊 Batafsil", callback_data=f"or:det:{abt_id}")
-    return InlineKeyboardMarkup(inline_keyboard=[[btn]])
+        toggle_btn = InlineKeyboardButton(text="📊 Batafsil", callback_data=f"or:det:{abt_id}")
 
+    link_btn = InlineKeyboardButton(
+        text="➡️ Ballingiz yetadigan yo'nalishlarni aniqlang ↗️",
+        url="http://t.me/mandatjavobbot?start=ad",
+    )
+
+    return InlineKeyboardMarkup(inline_keyboard=[[toggle_btn], [link_btn]])
 
 async def _build(abt_id: str, detailed: bool) -> tuple[str, InlineKeyboardMarkup | None]:
     """Xabar matni va tugmalari. Salbiy holatda tugmasiz matn qaytadi."""
