@@ -1,4 +1,4 @@
-"""'🏅 O'rin aniqlash' — abituriyentning reytingdagi o'rni va statistika.
+"""'📊 Mandat saytdagi o'rni' — abituriyentning reytingdagi o'rni va statistika.
 
 Sayt ID bo'yicha qidiruvda abituriyentni o'z fan majmuasidagi to'liq reyting
 ro'yxatining aynan o'sha sahifasida ko'rsatadi. Shundan o'rin chiqadi:
@@ -52,7 +52,13 @@ PROBE_DELAY = 0.15       # ikkilik qidiruvdagi so'rovlar orasidagi pauza
 MAX_PROBE_PAGE = 40000   # xavfsizlik chegarasi
 
 NOMINAL_MAX = 189.0      # nominal eng yuqori ball (undan yuqorisi imtiyoz bilan)
-PASS_MARK = 56.7         # o'tish chegarasi
+PASS_MARK = 56.7         # umumiy o'tish chegarasi
+PASS_MARK_HIGH = 68.0    # ayrim yo'nalishlar uchun yuqori chegara
+
+# "Raqiblaringiz natijalari" — ball bo'yicha to'plaganlar kesimi
+COMPETITOR_THRESHOLDS = (189.0, 170.0, 160.0, 150.0, 140.0,
+                         130.0, 120.0, 110.0, 100.0, 90.0, 80.0)
+PASS_THRESHOLDS = (PASS_MARK_HIGH, PASS_MARK)
 
 LADDER_RANKS = (100, 1000, 5000, 10000, 25000)
 
@@ -171,82 +177,83 @@ async def _request(url: str, params: dict) -> str:
     raise MandatUnavailable(str(last_err))
 
 
-async def _page_cards(s4: str, s5: str, lang: int, page: int,
-                      page_size: int = BULK_PAGE_SIZE) -> list[dict]:
-    html = await _request(PAGINATE_URL, {
-        "pageNumber": page, "pageSize": page_size,
-        "s4subject": s4, "s5subject": s5, "edLangId": lang,
-    })
-    return parse_cards(html)
-
-
 # ============ Kombinatsiya agregatlari (ikkilik qidiruv) ============
 
-async def _find_total(s4: str, s5: str, lang: int) -> int:
-    """Oxirgi to'la sahifani topib, jami abituriyentlar sonini hisoblaydi."""
-    lo, hi = 1, 1
-    while True:
-        n = len(await _page_cards(s4, s5, lang, hi))
-        await asyncio.sleep(PROBE_DELAY)
-        if n < BULK_PAGE_SIZE:
-            break
-        lo, hi = hi, hi * 2
-        if hi > MAX_PROBE_PAGE:
-            break
-    if hi == 1:  # birinchi sahifaning o'zi to'la emas
-        return len(await _page_cards(s4, s5, lang, 1))
-    while lo + 1 < hi:
-        mid = (lo + hi) // 2
-        n = len(await _page_cards(s4, s5, lang, mid))
-        await asyncio.sleep(PROBE_DELAY)
-        if n == BULK_PAGE_SIZE:
-            lo = mid
-        else:
-            hi = mid
-    tail = len(await _page_cards(s4, s5, lang, lo + 1))
-    return lo * BULK_PAGE_SIZE + tail
+class _Scan:
+    """Bitta majmua ro'yxati ustida hisob-kitob — sahifalar keshlanadi.
 
-
-async def _count_where(s4: str, s5: str, lang: int, pred, total: int) -> int:
-    """pred(ball) True bo'lganlar soni.
-
-    Ro'yxat ball bo'yicha kamayish tartibida, test topshirmaganlar (ballsiz)
-    eng oxirida — shuning uchun predikat monoton va ikkilik qidiruv ishlaydi.
+    O'nlab chegara bo'yicha ikkilik qidiruvlar bir xil ro'yxat ustida
+    ishlagani uchun kesh ularning ishini qayta ishlatadi: saytga so'rov
+    bir necha barobar kamayadi.
     """
-    if total <= 0:
-        return 0
-    first = await _page_cards(s4, s5, lang, 1)
-    await asyncio.sleep(PROBE_DELAY)
-    if not first or not pred(first[0]["ball"]):
-        return 0
 
-    last_page = -(-total // BULK_PAGE_SIZE)
-    lo, hi = 1, last_page + 1
-    while lo + 1 < hi:
-        mid = (lo + hi) // 2
-        cards = await _page_cards(s4, s5, lang, mid)
+    def __init__(self, s4: str, s5: str, lang: int):
+        self.s4, self.s5, self.lang = s4, s5, lang
+        self._cache: dict[int, list[dict]] = {}
+
+    async def page(self, p: int) -> list[dict]:
+        if p in self._cache:
+            return self._cache[p]
+        html = await _request(PAGINATE_URL, {
+            "pageNumber": p, "pageSize": BULK_PAGE_SIZE,
+            "s4subject": self.s4, "s5subject": self.s5, "edLangId": self.lang,
+        })
         await asyncio.sleep(PROBE_DELAY)
-        if cards and pred(cards[0]["ball"]):
-            lo = mid
-        else:
-            hi = mid
-    cards = await _page_cards(s4, s5, lang, lo)
-    return (lo - 1) * BULK_PAGE_SIZE + sum(1 for c in cards if pred(c["ball"]))
+        cards = parse_cards(html)
+        self._cache[p] = cards
+        return cards
 
+    async def total(self) -> int:
+        """Oxirgi to'la sahifani topib, jami abituriyentlar sonini hisoblaydi."""
+        lo = hi = 1
+        while len(await self.page(hi)) == BULK_PAGE_SIZE:
+            lo, hi = hi, hi * 2
+            if hi > MAX_PROBE_PAGE:
+                break
+        if hi == 1:  # birinchi sahifaning o'zi to'la emas
+            return len(await self.page(1))
+        while lo + 1 < hi:
+            mid = (lo + hi) // 2
+            if len(await self.page(mid)) == BULK_PAGE_SIZE:
+                lo = mid
+            else:
+                hi = mid
+        return lo * BULK_PAGE_SIZE + len(await self.page(lo + 1))
 
-async def _count_at_least(s4: str, s5: str, lang: int,
-                          threshold: float, total: int) -> int:
-    """ball >= threshold bo'lganlar soni."""
-    return await _count_where(
-        s4, s5, lang, lambda b: b is not None and b >= threshold, total)
+    async def count_where(self, pred, total: int) -> int:
+        """pred(ball) True bo'lganlar soni.
 
+        Ro'yxat ball bo'yicha kamayish tartibida, test topshirmaganlar
+        (ballsiz) eng oxirida — predikat monoton, ikkilik qidiruv ishlaydi.
+        """
+        if total <= 0:
+            return 0
+        first = await self.page(1)
+        if not first or not pred(first[0]["ball"]):
+            return 0
+        last_page = -(-total // BULK_PAGE_SIZE)
+        lo, hi = 1, last_page + 1
+        while lo + 1 < hi:
+            mid = (lo + hi) // 2
+            cards = await self.page(mid)
+            if cards and pred(cards[0]["ball"]):
+                lo = mid
+            else:
+                hi = mid
+        cards = await self.page(lo)
+        return (lo - 1) * BULK_PAGE_SIZE + sum(1 for c in cards if pred(c["ball"]))
 
-async def _ball_at_rank(s4: str, s5: str, lang: int, rank: int) -> float | None:
-    """Berilgan o'rindagi ball — bitta so'rov."""
-    page = -(-rank // BULK_PAGE_SIZE)
-    idx = (rank - 1) % BULK_PAGE_SIZE
-    cards = await _page_cards(s4, s5, lang, page)
-    return cards[idx]["ball"] if idx < len(cards) else None
+    async def count_at_least(self, threshold: float, total: int) -> int:
+        return await self.count_where(
+            lambda b: b is not None and b >= threshold, total)
+
+    async def ball_at(self, rank: int) -> float | None:
+        """Berilgan o'rindagi ball."""
+        if rank < 1:
+            return None
+        cards = await self.page(-(-rank // BULK_PAGE_SIZE))
+        idx = (rank - 1) % BULK_PAGE_SIZE
+        return cards[idx]["ball"] if idx < len(cards) else None
 
 
 def combo_key(s4: str, s5: str, lang: int) -> str:
@@ -254,27 +261,32 @@ def combo_key(s4: str, s5: str, lang: int) -> str:
 
 
 async def _compute_stats(s4: str, s5: str, lang: int, total: int | None = None) -> dict:
-    """Kombinatsiya bo'yicha to'liq agregatlar (~30 so'rov, bir marta)."""
+    """Kombinatsiya bo'yicha to'liq agregatlar (bir marta, fonda)."""
+    scan = _Scan(s4, s5, lang)
     if total is None:
-        total = await _find_total(s4, s5, lang)
+        total = await scan.total()
 
     # Test topshirganlar — ballsizlar (kelmaganlar) ro'yxat oxirida turadi
-    topshirgan = await _count_where(s4, s5, lang, lambda b: b is not None, total)
-    max_count = await _count_at_least(s4, s5, lang, NOMINAL_MAX, total)
-    pass_count = await _count_at_least(s4, s5, lang, PASS_MARK, total)
+    topshirgan = await scan.count_where(lambda b: b is not None, total)
+
+    # "Raqiblaringiz natijalari" kesimi + o'tish chegaralari
+    thresholds = {}
+    for t in (*COMPETITOR_THRESHOLDS, *PASS_THRESHOLDS):
+        thresholds[f"{t:g}"] = await scan.count_at_least(t, total)
 
     ladder = {}
     for r in LADDER_RANKS:
         if r < total:
-            b = await _ball_at_rank(s4, s5, lang, r)
-            await asyncio.sleep(PROBE_DELAY)
+            b = await scan.ball_at(r)
             if b is not None:
                 ladder[str(r)] = b
 
+    pass_count = thresholds.get(f"{PASS_MARK:g}", 0)
     stats = {
         "jami": total,
         "topshirgan": topshirgan,
-        "max_ball_count": max_count,
+        "thresholds": thresholds,
+        "max_ball_count": thresholds.get(f"{NOMINAL_MAX:g}"),
         # Chegaradan past — faqat test topshirganlar orasida
         "below_pass_count": max(0, topshirgan - pass_count),
         "ladder": ladder,
@@ -290,22 +302,24 @@ async def _save_stats(s4: str, s5: str, lang: int, stats: dict) -> None:
             """
             INSERT INTO orin_stats (combo_key, s4subject, s5subject, ed_lang_id,
                                     jami, topshirgan, max_ball_count,
-                                    below_pass_count, ladder, full_computed,
-                                    computed_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                                    below_pass_count, ladder, thresholds,
+                                    full_computed, computed_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (combo_key) DO UPDATE SET
                 jami = EXCLUDED.jami,
                 topshirgan = EXCLUDED.topshirgan,
                 max_ball_count = EXCLUDED.max_ball_count,
                 below_pass_count = EXCLUDED.below_pass_count,
                 ladder = EXCLUDED.ladder,
+                thresholds = EXCLUDED.thresholds,
                 full_computed = EXCLUDED.full_computed,
                 computed_at = NOW()
             """,
             (combo_key(s4, s5, lang), s4, s5, lang, stats["jami"],
              stats.get("topshirgan"), stats.get("max_ball_count"),
              stats.get("below_pass_count"),
-             json.dumps(stats.get("ladder") or {}), stats.get("full", False)),
+             json.dumps(stats.get("ladder") or {}),
+             json.dumps(stats.get("thresholds") or {}), stats.get("full", False)),
         )
     except Exception:
         logging.exception(f"Agregatlarni saqlab bo'lmadi ({combo_key(s4, s5, lang)})")
@@ -315,7 +329,8 @@ async def _load_stats(s4: str, s5: str, lang: int) -> dict | None:
     try:
         row = await database.fetchone(
             """SELECT jami, topshirgan, max_ball_count, below_pass_count, ladder,
-                      full_computed, computed_at >= NOW() - make_interval(secs => %s)
+                      thresholds, full_computed,
+                      computed_at >= NOW() - make_interval(secs => %s)
                FROM orin_stats WHERE combo_key = %s""",
             (STATS_FRESH_TTL, combo_key(s4, s5, lang)),
         )
@@ -325,10 +340,11 @@ async def _load_stats(s4: str, s5: str, lang: int) -> dict | None:
     if not row:
         return None
     ladder = row[4] if isinstance(row[4], dict) else json.loads(row[4] or "{}")
+    thresholds = row[5] if isinstance(row[5], dict) else json.loads(row[5] or "{}")
     return {
         "jami": row[0], "topshirgan": row[1], "max_ball_count": row[2],
-        "below_pass_count": row[3], "ladder": ladder,
-        "full": bool(row[5]), "fresh": bool(row[6]),
+        "below_pass_count": row[3], "ladder": ladder, "thresholds": thresholds,
+        "full": bool(row[6]), "fresh": bool(row[7]),
     }
 
 
@@ -361,13 +377,14 @@ async def get_stats(s4: str, s5: str, lang: int) -> dict:
 
     # Yangi (yoki eskirgan) — 'jami'ni darhol hisoblaymiz, qolganini fonda
     try:
-        total = await _find_total(s4, s5, lang)
+        total = await _Scan(s4, s5, lang).total()
     except Exception:
         if cached:
             return {**cached, "fresh": False}
         raise
     stats = {"jami": total, "topshirgan": None, "max_ball_count": None,
-             "below_pass_count": None, "ladder": {}, "full": False, "fresh": True}
+             "below_pass_count": None, "ladder": {}, "thresholds": {},
+             "full": False, "fresh": True}
     await _save_stats(s4, s5, lang, stats)
     _schedule_full_stats(s4, s5, lang, total)
     return stats
@@ -480,7 +497,7 @@ def _ball(b) -> str:
 def format_main(info: dict, stats: dict | None, stale: bool = False) -> str:
     """Asosiy xabar: o'rin, ball, foizli holat."""
     lines = [
-        "🏅 <b>O'rin aniqlash</b>",
+        "📊 <b>Mandat saytdagi o'rningiz</b>",
         "━━━━━━━━━━━━━━",
         f"🪪 {info.get('fio') or '—'}",
         f"🆔 <b>{info['abt_id']}</b>",
@@ -519,51 +536,63 @@ def format_main(info: dict, stats: dict | None, stale: bool = False) -> str:
 
 
 def format_details(info: dict, stats: dict | None) -> str:
-    """'Batafsil' — kombinatsiya bo'yicha kengaytirilgan statistika."""
+    """'Batafsil' — raqiblar kesimi: ball bo'yicha to'plaganlar taqsimoti."""
     lines = [
-        "📊 <b>Batafsil statistika</b>",
+        "📊 <b>Raqiblaringiz natijalari haqida</b>",
         "━━━━━━━━━━━━━━",
         f"📚 {info.get('s4subject')} + {info.get('s5subject')}",
         f"🗣 {info.get('ed_lang')}",
-        "",
     ]
 
     if not stats or not stats.get("jami"):
+        lines.append("")
         lines.append("⏳ Statistika hali hisoblanmoqda. Birozdan so'ng qayta bosing.")
         return "\n".join(lines)
 
     jami = stats["jami"]
-    lines.append(f"👥 Ushbu fan majmuasida jami: <b>{_num(jami)}</b> ta abituriyent")
-
-    if stats.get("full"):
-        topshirgan = stats.get("topshirgan")
-        if topshirgan:
-            lines.append(f"✍️ Test topshirgan: <b>{_num(topshirgan)}</b> ta "
-                         f"(kelmagan: {_num(jami - topshirgan)})")
-        lines.append("")
-        lines.append(f"🥇 {_ball(NOMINAL_MAX)} va undan yuqori ball: "
-                     f"<b>{_num(stats.get('max_ball_count'))}</b> ta")
-        lines.append(f"⚠️ O'tish chegarasidan ({_ball(PASS_MARK)}) past: "
-                     f"<b>{_num(stats.get('below_pass_count'))}</b> ta")
-
-        ladder = stats.get("ladder") or {}
-        if ladder:
-            lines.append("")
-            lines.append("🪜 <b>Ball darajalari</b> (shu o'ringa kirish uchun):")
-            for r in LADDER_RANKS:
-                b = ladder.get(str(r))
-                if b is not None:
-                    lines.append(f"    • Top {_num(r)} — <b>{_ball(b)}</b> ball")
+    topshirgan = stats.get("topshirgan")
+    if topshirgan:
+        lines.append(f"👥 Jami: <b>{_num(jami)}</b> | "
+                     f"✍️ Test topshirgan: <b>{_num(topshirgan)}</b>")
     else:
-        lines.append("")
-        lines.append("⏳ Qo'shimcha statistika hisoblanmoqda — birozdan so'ng qayta bosing.")
+        lines.append(f"👥 Ushbu fan majmuasida jami: <b>{_num(jami)}</b> ta")
 
-    orin, ball = info.get("orin"), info.get("ball")
+    if not stats.get("full"):
+        lines.append("")
+        lines.append("⏳ Batafsil statistika hisoblanmoqda — "
+                     "birozdan so'ng qayta bosing.")
+        return "\n".join(lines)
+
+    thresholds = stats.get("thresholds") or {}
+    ball = info.get("ball")
+
+    if thresholds:
+        lines.append("")
+        lines.append("📈 <b>Ball to'plaganlar soni</b>")
+        for t in COMPETITOR_THRESHOLDS:
+            cnt = thresholds.get(f"{t:g}")
+            if cnt is None:
+                continue
+            # Foydalanuvchining o'z darajasi ajratib ko'rsatiladi:
+            # ball shu chegaradan yuqori, lekin keyingisiga yetmagan
+            mark = " ⬅️ siz" if (ball is not None and t <= ball < _next_threshold(t)) else ""
+            lines.append(f"   <b>{t:g}+</b> ball: {_num(cnt)} ta{mark}")
+
+        lines.append("")
+        lines.append("🎯 <b>Minimal o'tish ballari bo'yicha</b>")
+        for t, icon in ((PASS_MARK_HIGH, "✅"), (PASS_MARK, "☑️")):
+            cnt = thresholds.get(f"{t:g}")
+            if cnt is not None:
+                lines.append(f"   {icon} <b>{_ball(t)}+</b> ball: {_num(cnt)} ta")
+        lines.append(f"   ❌ Natijasi {_ball(PASS_MARK)} dan past: "
+                     f"{_num(stats.get('below_pass_count'))} ta")
+
+    ladder = stats.get("ladder") or {}
+    orin = info.get("orin")
     if orin:
         lines.append("")
-        lines.append(f"🎯 <b>Sizning natijangiz:</b> {_ball(ball)} ball, "
+        lines.append(f"🏆 <b>Sizning natijangiz:</b> {_ball(ball)} ball, "
                      f"{_num(orin)}-o'rin")
-        ladder = stats.get("ladder") or {}
         # Eng yaqin (erishish oson) maqsad — o'rindan kichik eng katta daraja
         reachable = [r for r in LADDER_RANKS
                      if r < orin and ladder.get(str(r)) is not None]
@@ -574,4 +603,13 @@ def format_details(info: dict, stats: dict | None) -> str:
                 lines.append(f"📈 Top {_num(nxt)} ga kirish uchun yana "
                              f"<b>{_ball(farq)}</b> ball kerak edi")
 
+    lines.append("")
+    lines.append("<i>O'rin rasmiy UZBMB kengaytirilgan qidiruvidagi joriy "
+                 "tartib bo'yicha hisoblandi.</i>")
     return "\n".join(lines)
+
+
+def _next_threshold(t: float) -> float:
+    """Berilgan chegaradan keyingi (yuqoriroq) chegara."""
+    idx = COMPETITOR_THRESHOLDS.index(t)
+    return COMPETITOR_THRESHOLDS[idx - 1] if idx > 0 else float("inf")

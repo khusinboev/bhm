@@ -112,4 +112,9 @@ async def create_all_base():
                 "ADD COLUMN IF NOT EXISTS topshirgan INT;")
     db.commit()
 
+    # "Raqiblaringiz natijalari": ball chegaralari bo'yicha to'plaganlar soni
+    sql.execute("ALTER TABLE public.orin_stats "
+                "ADD COLUMN IF NOT EXISTS thresholds JSONB;")
+    db.commit()
+
 

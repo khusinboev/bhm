@@ -1,4 +1,4 @@
-"""'🏅 O'rin aniqlash' bo'limi.
+"""'📊 Mandat saytdagi o'rni' bo'limi.
 
 Oqim: tugma -> 7 xonali ID -> o'rin/ball/foiz + [📊 Batafsil] tugmasi.
 Barcha sayt/kesh/statistika mantiqi src/utils/orin.py ichida.
@@ -21,7 +21,7 @@ from src.utils.safe_send import answer_safe
 
 orin_router = Router()
 
-ORIN_BTN = "🏅 O'rin aniqlash"
+ORIN_BTN = "📊 Mandat saytdagi o'rni"
 
 BUSY_TEXT = ("🚨 Hozir so'rovlar juda ko'p, navbat to'la.\n"
              "Iltimos, 1-2 daqiqadan so'ng qayta urinib ko'ring.")
@@ -72,7 +72,7 @@ async def _build(abt_id: str, detailed: bool) -> tuple[str, InlineKeyboardMarkup
 async def orin_btn(message: Message, state: FSMContext):
     await state.set_state(OrinState.kutish)
     await message.answer(
-        "🏅 <b>O'rin aniqlash</b>\n\n"
+        "📊 <b>Mandat saytdagi o'rningiz</b>\n\n"
         "Fan majmuangiz bo'yicha reytingda nechanchi o'rinda ekaningizni bilish uchun "
         "7 xonali ID raqamingizni yuboring:",
         parse_mode="HTML",
