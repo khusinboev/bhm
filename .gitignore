@@ -45,3 +45,6 @@ tarqat.log
 
 # Pytest cache
 .cache/
+
+# Generatsiya qilinadigan statistika fayllari
+*.xlsx
