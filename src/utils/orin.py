@@ -568,23 +568,28 @@ def format_details(info: dict, stats: dict | None) -> str:
 
     if thresholds:
         lines.append("")
-        lines.append("📈 <b>Ball to'plaganlar soni</b>")
+        # Har bir daraja alohida quote blokida — Telegramda ajratib ko'rinadi
+        first = True
         for t in COMPETITOR_THRESHOLDS:
             cnt = thresholds.get(f"{t:g}")
             if cnt is None:
                 continue
+            icon = "📈 " if first else ""
+            first = False
             # Foydalanuvchining o'z darajasi ajratib ko'rsatiladi:
             # ball shu chegaradan yuqori, lekin keyingisiga yetmagan
             mark = " ⬅️ siz" if (ball is not None and t <= ball < _next_threshold(t)) else ""
-            lines.append(f"   <b>{t:g}+</b> ball: {_num(cnt)} ta{mark}")
+            lines.append(f"<blockquote>{icon}<b>{t:g}+</b> ball to'plaganlar: "
+                         f"{_num(cnt)} ta{mark}</blockquote>")
 
         lines.append("")
         lines.append("🎯 <b>Minimal o'tish ballari bo'yicha</b>")
         for t, icon in ((PASS_MARK_HIGH, "✅"), (PASS_MARK, "☑️")):
             cnt = thresholds.get(f"{t:g}")
             if cnt is not None:
-                lines.append(f"   {icon} <b>{_ball(t)}+</b> ball: {_num(cnt)} ta")
-        lines.append(f"   ❌ Natijasi {_ball(PASS_MARK)} dan past: "
+                lines.append(f"{icon} <b>{_ball(t)}+</b> ball to'plaganlar: "
+                             f"{_num(cnt)} ta")
+        lines.append(f"❌ Natijasi {_ball(PASS_MARK)} dan pastlar: "
                      f"{_num(stats.get('below_pass_count'))} ta")
 
     ladder = stats.get("ladder") or {}
