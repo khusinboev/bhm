@@ -23,7 +23,10 @@ from psycopg2.pool import ThreadedConnectionPool
 from config import DB_CONFIG, REDIS_DB
 
 CACHE_PREFIX = "mandat:setting:"
-CACHE_TTL = 60  # umumiy bazadagi o'zgarish boshqa botlarda shu muddat ichida ko'rinadi
+CACHE_TTL = 60      # o'rnatilgan qiymat keshi
+# "O'rnatilmagan" holat qisqa keshlanadi: boshqa botda qo'yilgan havola
+# deyarli darhol ko'rinsin (aks holda TTL tugashini kutish kerak bo'lardi)
+EMPTY_TTL = 10
 
 SHARED_DB_NAME = os.getenv("SHARED_DB_NAME") or DB_CONFIG["dbname"]
 _SHARED_CFG = {**DB_CONFIG, "dbname": SHARED_DB_NAME}
@@ -90,7 +93,8 @@ async def get(key: str, default: str | None = None) -> str | None:
 
     value = row[0] if row and row[0] else None
     try:
-        await redis.set(CACHE_PREFIX + key, value or "", ex=CACHE_TTL)
+        await redis.set(CACHE_PREFIX + key, value or "",
+                        ex=CACHE_TTL if value else EMPTY_TTL)
     except Exception as e:
         logging.warning(f"Sozlamani Redis'ga yozib bo'lmadi: {e}")
     return value if value else default
