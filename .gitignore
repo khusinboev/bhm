@@ -48,3 +48,5 @@ tarqat.log
 
 # Generatsiya qilinadigan statistika fayllari
 *.xlsx
+foydalanuvchilar_*.csv
+foydalanuvchilar_*.xlsx
