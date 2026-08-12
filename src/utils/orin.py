@@ -43,6 +43,13 @@ _waiting = 0
 _inflight: dict[str, asyncio.Task] = {}
 
 FETCH_DEADLINE = 20      # foydalanuvchining kutish chegarasi
+
+# Fon statistikasi (o'nlab so'rov) foydalanuvchilar navbatini bosib
+# qo'ymasligi uchun: o'z tor semaforasi va navbat bo'shashini kutish
+BG_PARALLEL = 1
+_bg_semaphore = asyncio.Semaphore(BG_PARALLEL)
+BG_PRESSURE_LIMIT = 5    # kutayotgan user so'rovi shundan oshsa fon ishi to'xtaydi
+BG_PRESSURE_SLEEP = 5
 RANK_FRESH_TTL = 3 * 3600    # o'rin snapshot'ining yangilik muddati
 STATS_FRESH_TTL = 12 * 3600  # kombinatsiya agregatlarining yangilik muddati
 NEG_TTL = 10 * 60
@@ -187,17 +194,26 @@ class _Scan:
     bir necha barobar kamayadi.
     """
 
-    def __init__(self, s4: str, s5: str, lang: int):
+    def __init__(self, s4: str, s5: str, lang: int, background: bool = False):
         self.s4, self.s5, self.lang = s4, s5, lang
+        self.background = background
         self._cache: dict[int, list[dict]] = {}
 
     async def page(self, p: int) -> list[dict]:
         if p in self._cache:
             return self._cache[p]
-        html = await _request(PAGINATE_URL, {
+        params = {
             "pageNumber": p, "pageSize": BULK_PAGE_SIZE,
             "s4subject": self.s4, "s5subject": self.s5, "edLangId": self.lang,
-        })
+        }
+        if self.background:
+            # Foydalanuvchilar navbatda kutayotgan bo'lsa fon ishi yo'l beradi
+            while _waiting > BG_PRESSURE_LIMIT:
+                await asyncio.sleep(BG_PRESSURE_SLEEP)
+            async with _bg_semaphore:
+                html = await _request(PAGINATE_URL, params)
+        else:
+            html = await _request(PAGINATE_URL, params)
         await asyncio.sleep(PROBE_DELAY)
         cards = parse_cards(html)
         self._cache[p] = cards
@@ -262,7 +278,7 @@ def combo_key(s4: str, s5: str, lang: int) -> str:
 
 async def _compute_stats(s4: str, s5: str, lang: int, total: int | None = None) -> dict:
     """Kombinatsiya bo'yicha to'liq agregatlar (bir marta, fonda)."""
-    scan = _Scan(s4, s5, lang)
+    scan = _Scan(s4, s5, lang, background=True)
     if total is None:
         total = await scan.total()
 

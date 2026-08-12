@@ -14,13 +14,24 @@ from psycopg2.pool import ThreadedConnectionPool
 
 from config import DB_CONFIG
 
+# Serverda bir nechta bot nusxasi + tarqat_worker + boshqa loyihalar bitta
+# Postgres'ni bo'lishadi (max_connections=100). Har nusxa ko'pi bilan
+# POOL_MAX ta ulanish oladi: 3 bot + worker = ~52, boshqalarga joy qoladi.
+POOL_MAX = 12
+
+# psycopg2 pool to'lganda KUTMAYDI — darhol PoolError otadi. Shuning uchun
+# bir vaqtdagi so'rovlar sonini pool hajmidan past ushlaymiz: ortiqchasi
+# navbatda muloyim kutadi, xato umuman chiqmaydi.
+DB_CONCURRENCY = POOL_MAX - 2
+
 _pool: ThreadedConnectionPool | None = None
+_sem = asyncio.Semaphore(DB_CONCURRENCY)
 
 
 def _get_pool() -> ThreadedConnectionPool:
     global _pool
     if _pool is None:
-        _pool = ThreadedConnectionPool(minconn=1, maxconn=20, **DB_CONFIG)
+        _pool = ThreadedConnectionPool(minconn=1, maxconn=POOL_MAX, **DB_CONFIG)
     return _pool
 
 
@@ -56,15 +67,18 @@ def _run(query: str, params, fetch: str | None):
 
 
 async def fetchone(query: str, params=None):
-    return await asyncio.to_thread(_run, query, params, "one")
+    async with _sem:
+        return await asyncio.to_thread(_run, query, params, "one")
 
 
 async def fetchall(query: str, params=None):
-    return await asyncio.to_thread(_run, query, params, "all")
+    async with _sem:
+        return await asyncio.to_thread(_run, query, params, "all")
 
 
 async def execute(query: str, params=None) -> None:
-    await asyncio.to_thread(_run, query, params, None)
+    async with _sem:
+        await asyncio.to_thread(_run, query, params, None)
 
 
 async def close_pool() -> None:

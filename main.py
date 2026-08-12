@@ -2,6 +2,7 @@ import asyncio
 import logging
 import signal
 import ssl
+from concurrent.futures import ThreadPoolExecutor
 
 from aiogram import Bot, Dispatcher
 from aiogram.exceptions import TelegramForbiddenError
@@ -35,6 +36,13 @@ from src.middlewares.middleware import RegisterUserMiddleware
 
 
 async def on_startup() -> None:
+    # asyncio'ning standart thread pool'i min(32, CPU+4) = 12 ta oqim beradi va
+    # u DB so'rovlari (~1ms) hamda HTML tahlili (~30ms) o'rtasida bo'linadi:
+    # cho'qqida tahlil oqimlarni band qilib, DB so'rovlarini kuttirib qo'yadi.
+    # Kengroq pool ikkalasiga ham joy beradi.
+    asyncio.get_running_loop().set_default_executor(
+        ThreadPoolExecutor(max_workers=32, thread_name_prefix="bhm-worker"))
+
     await create_all_base()
     count = await known_users.preload()
     logging.info(f"Known-users kesh: {count} ta mavjud user Redis'ga yuklandi")
@@ -137,6 +145,8 @@ async def run_webhook() -> None:
         secret_token=WEBHOOK_SECRET or None,
         allowed_updates=dp.resolve_used_update_types(),
         drop_pending_updates=False,
+        # Cho'qqi oqimda Telegram ko'proq parallel yetkazib bersin (standart 40)
+        max_connections=100,
     )
     logging.info(f"Webhook o'rnatildi: {url}")
 
