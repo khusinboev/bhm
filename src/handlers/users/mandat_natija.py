@@ -65,7 +65,8 @@ async def show_natija(message: Message, state: FSMContext):
         if message.from_user.id in ADMIN_ID:
             await message.answer(
                 "⚙️ WebApp havolasi hali o'rnatilmagan.\n\n"
-                "O'rnatish uchun: <code>/adwep https://...</code>",
+                "O'rnatish uchun: <code>/adwep https://...</code>\n"
+                "<i>(havola uchala botda ham ishlaydi)</i>",
                 parse_mode="HTML")
         else:
             await message.answer(
@@ -117,5 +118,6 @@ async def set_webapp(message: Message, command: CommandObject):
 
     await message.answer(
         f"✅ WebApp havolasi o'rnatildi:\n<code>{arg}</code>\n\n"
-        f"«{NATIJA_BTN}» tugmasi endi ishlaydi. Quyida sinab ko'ring:",
+        f"«{NATIJA_BTN}» tugmasi endi <b>uchala botda ham</b> ishlaydi "
+        f"(boshqalarida 1 daqiqagacha kutilishi mumkin).\n\nQuyida sinab ko'ring:",
         parse_mode="HTML", reply_markup=_webapp_markup(arg))
