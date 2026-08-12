@@ -134,7 +134,12 @@ async def orin_switch(call: CallbackQuery):
         except: pass
 
 
-@orin_router.message(OrinState.kutish, F.chat.type == ChatType.PRIVATE)
+@orin_router.message(OrinState.kutish,
+                     F.text != "📊 MANDAT NATIJASI",
+                     F.text != "📝 Mandat natijasiga buyurtma berish",
+                     F.text != "🎯 Balingizga mos yo'nalish",
+                     F.text != "📊 Natija",
+                     F.chat.type == ChatType.PRIVATE)
 async def invalid_orin_input(msg: Message):
     await msg.answer("✋ Iltimos, faqat 7 xonali ID raqamini yuboring (faqat raqamlar).",
                      reply_markup=await UserPanels.to_back())

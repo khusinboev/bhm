@@ -117,4 +117,12 @@ async def create_all_base():
                 "ADD COLUMN IF NOT EXISTS thresholds JSONB;")
     db.commit()
 
+    # Admin buyruqlari bilan o'rnatiladigan sozlamalar (masalan WebApp havolasi)
+    sql.execute("""CREATE TABLE IF NOT EXISTS public.sozlamalar (
+        kalit TEXT PRIMARY KEY,
+        qiymat TEXT,
+        updated_at TIMESTAMP DEFAULT NOW()
+    );""")
+    db.commit()
+
 

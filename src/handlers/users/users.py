@@ -13,6 +13,7 @@ from src.keyboards.buttons import UserPanels
 from src.keyboards.keyboard_func import CheckData
 from src.utils import rate_limit, result_service
 from src.utils.mandat_parser import MandatBusy, MandatUnavailable
+from src.utils.safe_send import answer_safe
 
 user_router = Router()
 
@@ -204,24 +205,25 @@ async def handle_id(message: Message, state: FSMContext):
             order_number = row[0]
 
     # Foydalanuvchiga javob
-    ball_txt = umumiy_ball if umumiy_ball is not None else "hali e'lon qilinmagan"
+    ball_line = (f"🎓 Umumiy ball: <b>{umumiy_ball}</b>\n"
+                 if umumiy_ball is not None else "")
     orn_line = f"📊 Mandat saytidagi o‘rningiz: {umumiy_orn}\n" if umumiy_orn else ""
     text = (
-        f"<b>✅ Tabriklaymiz:</b> {abt_id} ID raqamli mandat natijasiga buyurtma qabul qilindi\n\n"
-        f"<b>📑 Buyurtma tartib raqami:</b> {int(order_number) + 100}\n"
-        f"🪪 F.I.SH: {fio}\n"
-        f"🎓 Umumiy ball: {ball_txt}\n"
-        f"{orn_line}\n"
-        f"<i><b>Eslatma:</b> YAKUNIY MANDAT NATIJALARI e'lon qilinishi bilan ushbu bot avtomatik ravishda natijangizni yuboradi!</i>\n\n"
-        f"<b>✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda.</b>"
+        f"✅ <b>{fio}</b>, sizning <b>{abt_id}</b> raqamli yakuniy mandat "
+        f"natijangiz uchun buyurtmangiz qabul qilindi!\n\n"
+        f"📑 Buyurtma tartib raqami: <b>{int(order_number) + 100}</b>\n"
+        f"{ball_line}{orn_line}\n"
+        f"⏳ <b>Yakuniy mandat natijalari e'lon qilinishi bilan sizga "
+        f"avtomatik xabar beriladi.</b>\n\n"
+        f"✔️ Buyurtma @mandat_uzbmbbot tomonidan amalga oshirilmoqda."
     )
 
-    await message.answer(text, parse_mode="html")
+    await answer_safe(message, text, parse_mode="html")
 
 
 @user_router.message(MainState.natija2, F.text != "📊 Natija",
                      F.text != "🎯 Balingizga mos yo'nalish",
-                     F.text != "📊 Mandat saytdagi o'rni", F.chat.type == ChatType.PRIVATE)
+                     F.text != "📊 MANDAT NATIJASI", F.text != "📊 Mandat saytdagi o'rni", F.chat.type == ChatType.PRIVATE)
 async def invalid_input(message: Message):
     # Boshqa bo'lim tugmalari bu yerda ushlanmaydi — o'z handlerlariga o'tib ketadi
     await message.answer("✋ Iltimos, faqat 7 xonali ID raqamini kiriting (faqat raqamlar).",

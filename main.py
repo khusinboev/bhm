@@ -27,6 +27,7 @@ from src.handlers.others.groups import group_router
 from src.handlers.others.other import other_router
 # from src.handlers.users.buyurtma import buyurtma_router
 from src.handlers.users.data import data_router
+from src.handlers.users.mandat_natija import mandat_natija_router
 from src.handlers.users.orin import orin_router
 from src.handlers.users.users import user_router
 from src.handlers.users.yonalish import yonalish_router
@@ -79,6 +80,7 @@ async def main():
     dp.include_router(data_router)
     dp.include_router(yonalish_router)
     dp.include_router(orin_router)
+    dp.include_router(mandat_natija_router)
 
     #for other
     dp.include_router(group_router)

@@ -364,7 +364,7 @@ async def yonalish_callbacks(call: CallbackQuery, state: FSMContext):
 
 
 @yonalish_router.message(YonalishState.kutish, F.text != "📊 Mandat saytdagi o'rni",
-                         F.text != "📊 Natija", F.chat.type == ChatType.PRIVATE)
+                         F.text != "📊 MANDAT NATIJASI", F.text != "📊 Natija", F.chat.type == ChatType.PRIVATE)
 async def invalid_yonalish_input(msg: Message):
     await msg.answer("✋ Iltimos, faqat 7 xonali ID raqamini yuboring (faqat raqamlar).",
                      reply_markup=await UserPanels.to_back())

@@ -113,9 +113,10 @@ class UserPanels:
     @staticmethod
     async def main2():
         btn = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="📊 Mandat saytdagi o'rni")],
+            keyboard=[[KeyboardButton(text="📊 MANDAT NATIJASI")],
+                      [KeyboardButton(text="📝 Mandat natijasiga buyurtma berish")],
                       [KeyboardButton(text="🎯 Balingizga mos yo'nalish"),
                        KeyboardButton(text="📊 Natija")],
-                      [KeyboardButton(text="📝 Mandat natijasiga buyurtma berish")]], resize_keyboard=True,
+                      [KeyboardButton(text="📊 Mandat saytdagi o'rni")]], resize_keyboard=True,
         )
         return btn

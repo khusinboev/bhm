@@ -82,7 +82,7 @@ async def handle_id_query(msg: Message):
 
 
 @data_router.message(MainState2.natija, F.text != "🎯 Balingizga mos yo'nalish",
-                     F.text != "📊 Mandat saytdagi o'rni", F.chat.type == ChatType.PRIVATE)
+                     F.text != "📊 MANDAT NATIJASI", F.text != "📊 Mandat saytdagi o'rni", F.chat.type == ChatType.PRIVATE)
 async def invalid_natija_input(msg: Message):
     await msg.answer("✋ Iltimos, faqat 7 xonali ID raqamini yuboring (faqat raqamlar).",
                      reply_markup=await UserPanels.to_back())
