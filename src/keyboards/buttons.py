@@ -1,8 +1,10 @@
+import logging
+
 from aiogram import types
 from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardButton, KeyboardButton, InlineKeyboardMarkup
 
 from config import bot
-from src.utils import channels_cache
+from src.utils import channels_cache, settings
 
 
 class AdminPanel:
@@ -113,10 +115,27 @@ class UserPanels:
     @staticmethod
     async def main2():
         btn = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="📊 MANDAT NATIJASI")],
-                      [KeyboardButton(text="📝 Mandat natijasiga buyurtma berish")],
-                      [KeyboardButton(text="🎯 Balingizga mos yo'nalish"),
-                       KeyboardButton(text="📊 Natija")],
-                      [KeyboardButton(text="📊 Mandat saytdagi o'rni")]], resize_keyboard=True,
+            keyboard=await UserPanels.main2_rows(), resize_keyboard=True,
         )
         return btn
+
+    @staticmethod
+    async def main2_rows():
+        """Menyu qatorlari.
+
+        "📊 MANDAT NATIJASI" tugmasi faqat admin /adwep bilan WebApp
+        havolasini o'rnatgandan keyin ko'rinadi.
+        """
+        rows = []
+        try:
+            if await settings.get("mandat_webapp_url"):
+                rows.append([KeyboardButton(text="📊 MANDAT NATIJASI")])
+        except Exception:
+            logging.exception("WebApp havolasini tekshirib bo'lmadi")
+        rows += [
+            [KeyboardButton(text="📝 Mandat natijasiga buyurtma berish")],
+            [KeyboardButton(text="🎯 Balingizga mos yo'nalish"),
+             KeyboardButton(text="📊 Natija")],
+            [KeyboardButton(text="📊 Mandat saytdagi o'rni")],
+        ]
+        return rows

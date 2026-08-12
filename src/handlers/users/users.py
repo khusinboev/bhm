@@ -2,7 +2,7 @@ import logging
 
 from aiogram import Router, F
 from aiogram.enums import ChatType
-from aiogram.filters import CommandStart
+
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, CallbackQuery
@@ -22,10 +22,7 @@ class MainState(StatesGroup):
     natija2 = State()
 
 
-@user_router.message(CommandStart())
-async def start_cmd(message: Message):
-    await message.answer("<b>📄 Natijani ko'rish uchun quyidagi tugmalardan birini tanlang:</b>",
-                         reply_markup=await UserPanels.main2(), parse_mode="html")
+# /start endi royxat_router tomonidan ishlanadi (viloyat + telefon so'raladi)
 
 
 @user_router.callback_query(F.data == "check", F.message.chat.type == ChatType.PRIVATE)
@@ -154,36 +151,24 @@ async def handle_id(message: Message, state: FSMContext):
             if fresh and fresh[0] is not None:
                 umumiy_ball = fresh[0]
     else:
-        # Bazada yo'q — resolver orqali (avval ombor/kesh, kerak bo'lsa sayt)
+        # Bazada yo'q — resolver orqali (avval ombor/kesh, kerak bo'lsa sayt).
+        # MUHIM: sayt javob bermasa ham buyurtma baribir saqlanadi — natija
+        # e'lon qilinganda /tarqat uni topib foydalanuvchiga yuboradi.
         loading = await message.answer("🔍 Ma'lumotlar olinmoqda, kuting...")
+        info = None
         try:
             info = await result_service.get_result(abt_id)
-        except MandatBusy:
-            try: await loading.delete()
-            except: pass
-            await message.answer("🚨 Hozir so'rovlar juda ko'p, navbat to'la.\nIltimos, 1-2 daqiqadan so'ng qayta urinib ko'ring.")
-            return
-        except MandatUnavailable:
-            try: await loading.delete()
-            except: pass
-            await message.answer("🚨 mandat.uzbmb.uz sayti hozir javob bermayapti.\nIltimos, birozdan so'ng qayta urinib ko'ring.")
-            return
+        except (MandatBusy, MandatUnavailable):
+            logging.info(f"Sayt javob bermadi, buyurtma baribir saqlanadi (ID={abt_id})")
         except Exception:
             logging.exception(f"Buyurtma uchun ma'lumot olishda xatolik (ID={abt_id})")
-            try: await loading.delete()
-            except: pass
-            await message.answer("❌ Ma'lumot olishda xatolik yuz berdi. Keyinroq qayta urinib ko'ring.")
-            return
 
         try: await loading.delete()
         except: pass
 
-        if info is None:
-            await message.answer("❌ Bunday ID topilmadi. Iltimos, ID raqamini tekshiring.")
-            return
-
-        fio = info["fio"]
-        umumiy_ball = info["umumiy_ball"].replace(",", ".") if info["umumiy_ball"] else None
+        fio = info["fio"] if info else None
+        umumiy_ball = (info["umumiy_ball"].replace(",", ".")
+                       if info and info.get("umumiy_ball") else None)
         umumiy_orn = None  # 2026 saytida natijalar jadvali yo'q — o'rin ko'rsatilmaydi
 
         inserted = await database.fetchone("""
@@ -208,8 +193,10 @@ async def handle_id(message: Message, state: FSMContext):
     ball_line = (f"🎓 Umumiy ball: <b>{umumiy_ball}</b>\n"
                  if umumiy_ball is not None else "")
     orn_line = f"📊 Mandat saytidagi o‘rningiz: {umumiy_orn}\n" if umumiy_orn else ""
+    # F.I.SH hali noma'lum bo'lishi mumkin (sayt javob bermagan bo'lsa)
+    kimga = f"<b>{fio}</b>, sizning" if fio else "Sizning"
     text = (
-        f"✅ <b>{fio}</b>, sizning <b>{abt_id}</b> raqamli yakuniy mandat "
+        f"✅ {kimga} <b>{abt_id}</b> raqamli yakuniy mandat "
         f"natijangiz uchun buyurtmangiz qabul qilindi!\n\n"
         f"📑 Buyurtma tartib raqami: <b>{int(order_number) + 100}</b>\n"
         f"{ball_line}{orn_line}\n"

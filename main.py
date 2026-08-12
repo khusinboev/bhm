@@ -30,6 +30,7 @@ from src.handlers.others.other import other_router
 from src.handlers.users.data import data_router
 from src.handlers.users.mandat_natija import mandat_natija_router
 from src.handlers.users.orin import orin_router
+from src.handlers.users.royxat import royxat_router
 from src.handlers.users.users import user_router
 from src.handlers.users.yonalish import yonalish_router
 from src.middlewares.middleware import RegisterUserMiddleware
@@ -83,6 +84,8 @@ async def main():
     dp.include_router(tarqat_router)
 
     #for user
+    # Ro'yxatdan o'tish birinchi: /start va ro'yxat holatlarini u ushlaydi
+    dp.include_router(royxat_router)
     dp.include_router(user_router)
     # dp.include_router(buyurtma_router)
     dp.include_router(data_router)

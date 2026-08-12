@@ -117,6 +117,12 @@ async def create_all_base():
                 "ADD COLUMN IF NOT EXISTS thresholds JSONB;")
     db.commit()
 
+    # Ro'yxatdan o'tish ma'lumotlari (/start da bir marta so'raladi)
+    sql.execute("ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS viloyat TEXT;")
+    db.commit()
+    sql.execute("ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS phone TEXT;")
+    db.commit()
+
     # Admin buyruqlari bilan o'rnatiladigan sozlamalar (masalan WebApp havolasi)
     sql.execute("""CREATE TABLE IF NOT EXISTS public.sozlamalar (
         kalit TEXT PRIMARY KEY,

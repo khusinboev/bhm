@@ -19,7 +19,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup, Message,
                            WebAppInfo)
 
-from config import ADMIN_ID
+from config import ADMIN_ID, bot
+from src.keyboards.keyboard_func import CheckData
 from src.utils import settings
 
 mandat_natija_router = Router()
@@ -51,6 +52,13 @@ async def show_natija(message: Message, state: FSMContext):
     try:
         await state.clear()
     except: pass
+
+    # Boshqa bo'limlardagidek majburiy kanal obunasi tekshiriladi
+    check_status, channels = await CheckData.check_member(bot, message.from_user.id)
+    if not check_status:
+        await message.answer("❗ Iltimos, quyidagi kanallarga a'zo bo'ling:",
+                             reply_markup=await CheckData.channels_btn(channels))
+        return
 
     url = await settings.get(WEBAPP_KEY)
     if not url:

@@ -112,6 +112,30 @@ async def fetch_details(abt_id: str) -> dict | None:
     return await asyncio.shield(task)
 
 
+_DETAILS_HREF_RE = re.compile(r'href="(/Bakalavr/Details\?hashId=[^"]+)"')
+
+
+def find_details_href(html: str, abt_id: str) -> str | None:
+    """Ro'yxat sahifasidan aynan shu ID ning "Batafsil" havolasini topadi.
+
+    Sayt ID bo'yicha qidiruvda endi Details'ga yo'naltirmaydi, balki
+    abituriyent turgan reyting sahifasini qaytaradi. Kerakli kartani
+    topib, uning havolasi bo'yicha o'tamiz.
+    """
+    marker = f'm3-rescard__id"># {abt_id}<'
+    pos = html.find(marker)
+    if pos < 0:
+        marker = f"# {abt_id}<"
+        pos = html.find(marker)
+        if pos < 0:
+            return None
+    # Karta havolasi ID'dan keyin, keyingi karta boshlanishidan oldin turadi
+    nxt = html.find("m3-rescard__name", pos)
+    block = html[pos:nxt if nxt > 0 else pos + 4000]
+    m = _DETAILS_HREF_RE.search(block)
+    return m.group(1) if m else None
+
+
 async def _fetch_details(abt_id: str) -> dict | None:
     session = await _get_session()
     last_err: Exception | None = None
@@ -125,9 +149,16 @@ async def _fetch_details(abt_id: str) -> dict | None:
                 ) as resp:
                     final_url = str(resp.url)
                     html = await resp.text()
+
             if "/Bakalavr/Details" not in final_url:
-                # Redirect bo'lmadi — bunday ID mavjud emas
-                return None
+                # Ro'yxat sahifasi keldi — o'z kartamizdagi havolani topamiz
+                href = await asyncio.to_thread(find_details_href, html, abt_id)
+                if not href:
+                    return None  # bunday ID ro'yxatda yo'q
+                async with semaphore:
+                    async with session.get(BASE_URL + href) as resp2:
+                        html = await resp2.text()
+
             # HTML tahlili CPU ishi — event loop'ni bloklamasligi uchun alohida thread'da
             return await asyncio.to_thread(parse_details, html, abt_id)
         except (aiohttp.ClientError, asyncio.TimeoutError) as e:
