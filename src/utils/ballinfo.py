@@ -99,7 +99,14 @@ async def _fetch(abt_id: str) -> dict:
         try:
             async with semaphore:
                 async with session.get(BALLINFO_URL, params={"entrantId": abt_id}) as resp:
-                    return await resp.json(content_type=None)
+                    raw = await resp.json(content_type=None)
+                    # Sayt bo'sh yoki `null` tana qaytarganda json() None beradi
+                    # (content_type=None bo'lgani uchun ValueError ham chiqmaydi).
+                    # Uni shu yerda ushlamasak, chaqiruvchi `raw.get(...)` da
+                    # AttributeError bilan yiqiladi.
+                    if not isinstance(raw, dict):
+                        raise ValueError(f"kutilmagan javob turi: {type(raw).__name__}")
+                    return raw
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
             last_err = e
             logging.warning(f"BallInfo so'rovi muvaffaqiyatsiz ({attempt}-urinish, ID={abt_id}): {e}")
