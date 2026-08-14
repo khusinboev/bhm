@@ -50,3 +50,6 @@ tarqat.log
 *.xlsx
 foydalanuvchilar_*.csv
 foydalanuvchilar_*.xlsx
+
+# claude — .claude/ ichida infra/server eslatmalari bor, commit qilinmaydi
+.claude/
