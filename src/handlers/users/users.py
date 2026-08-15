@@ -1,7 +1,14 @@
 import logging
+import time
 
 from aiogram import Router, F
 from aiogram.enums import ChatType
+from aiogram.exceptions import (
+    TelegramBadRequest,
+    TelegramForbiddenError,
+    TelegramNetworkError,
+    TelegramRetryAfter,
+)
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -16,6 +23,36 @@ from src.utils.mandat_parser import MandatBusy, MandatUnavailable
 from src.utils.safe_send import answer_safe
 
 user_router = Router()
+
+# Adminni xato xabarlari bilan ko'mib tashlamaslik uchun.
+#
+# Ilgari "✅ Tekshirish" handleri HAR QANDAY xatoda adminga xabar yozardi.
+# Ommaviy tarqatishdan keyin bu ikki tomonlama zarar berdi:
+#   1) admin minglab bir xil xabar oldi ("bot was blocked by the user" —
+#      foydalanuvchi botni bloklagani odatiy holat, xato emas);
+#   2) har bir o'sha xabar botning Telegram kvotasidan (~30 xabar/soniya)
+#      yeb, asosiy sekinlikni yanada kuchaytirdi.
+#
+# Endi: kutilgan xatolar umuman xabar qilinmaydi, kutilmaganlari esa
+# turi bo'yicha throttle qilinadi.
+ADMIN_ALERT_INTERVAL = 300  # bir xil turdagi xato haqida ko'pi bilan 5 daqiqada bir marta
+_last_admin_alert: dict[str, float] = {}
+
+
+async def _alert_admin(prefix: str, exc: Exception) -> None:
+    """Kutilmagan xato haqida adminga xabar — turi bo'yicha throttle bilan."""
+    key = f"{prefix}:{type(exc).__name__}"
+    now = time.monotonic()
+    if now - _last_admin_alert.get(key, 0.0) < ADMIN_ALERT_INTERVAL:
+        return
+    _last_admin_alert[key] = now
+    try:
+        await bot.send_message(
+            chat_id=ADMIN_ID[0],
+            text=f"{prefix}\n{type(exc).__name__}: {exc}",
+        )
+    except Exception:
+        logging.warning("Adminga ogohlantirish yuborib bo'lmadi", exc_info=True)
 
 
 class MainState(StatesGroup):
@@ -44,11 +81,19 @@ async def check(call: CallbackQuery):
             try:
                 await call.answer(show_alert=True, text="Botimizdan foydalanish uchun barcha kanallarga a'zo bo'ling")
             except: pass
+    except TelegramForbiddenError:
+        # Foydalanuvchi botni bloklagan — mutlaqo odatiy holat, xato emas.
+        logging.info("Bloklagan foydalanuvchiga javob yuborilmadi (user_id=%s)", user_id)
+    except TelegramRetryAfter as e:
+        # Telegram tezlik chegarasi — o'zi tiklanadi, adminni bezovta qilmaymiz.
+        logging.warning("check: Telegram tezlik chegarasi, %s s kutish kerak", e.retry_after)
+    except (TelegramNetworkError, TelegramBadRequest) as e:
+        # Tarmoq uzilishi yoki eskirgan callback ("query is too old") — kutilgan.
+        logging.warning("check: vaqtinchalik Telegram xatosi: %s", e)
     except Exception as e:
+        # Faqat haqiqatan kutilmagan xatolar adminga boradi (throttle bilan).
         logging.exception("check callback xatoligi")
-        try:
-            await bot.send_message(chat_id=ADMIN_ID[0], text=f"Error in check:\n{e}")
-        except: pass
+        await _alert_admin("Error in check:", e)
 
 
 @user_router.message(F.text == "🔙 Ortga", F.chat.type == ChatType.PRIVATE)
